@@ -29,7 +29,7 @@
   ],
   "full_drive": [
     {
-      "car_bumps": 0,
+      "car_bumps": 1,
       "hazards_passed": 23,
       "hazards_per_min": 11.5,
       "holes_hit": 1,
@@ -37,25 +37,25 @@
       "lookahead_s": 1.6,
       "offroad_s": 0.0,
       "puddles_hit": 0,
-      "score": 45601,
+      "score": 43638,
       "seconds": 120.0,
       "speed_kmh": 70.0
     },
     {
       "car_bumps": 1,
-      "hazards_passed": 29,
-      "hazards_per_min": 14.5,
+      "hazards_passed": 32,
+      "hazards_per_min": 16.0,
       "holes_hit": 1,
       "lane_changes": 19,
       "lookahead_s": 1.6,
       "offroad_s": 0.0,
       "puddles_hit": 3,
-      "score": 37839,
+      "score": 38114,
       "seconds": 120.0,
       "speed_kmh": 90.0
     }
   ],
-  "generated_at": "2026-11-12T20:14:36",
+  "generated_at": "2026-11-12T20:31:43",
   "lane_change": [
     {
       "overshoot_road": 0.042,
@@ -156,37 +156,37 @@
   ],
   "pothole": [
     {
-      "body_peak_screen_px": 9.815,
-      "body_peak_units": 46.949,
-      "lateral_kick_peak_road": 0.024,
+      "body_peak_screen_px": 8.834,
+      "body_peak_units": 42.254,
+      "lateral_kick_peak_road": 0.022,
       "oscillations": 1.5,
-      "pitch_peak_rad": 0.039,
-      "pitch_peak_screen_px": 14.737,
-      "roll_peak_rad": 0.041,
+      "pitch_peak_rad": 0.034,
+      "pitch_peak_screen_px": 13.034,
+      "roll_peak_rad": 0.037,
       "settle_s": 1.683,
       "speed_kmh": 40.0,
       "speed_lost_peak_kmh": 3.0
     },
     {
-      "body_peak_screen_px": 13.087,
-      "body_peak_units": 62.599,
-      "lateral_kick_peak_road": 0.033,
+      "body_peak_screen_px": 11.779,
+      "body_peak_units": 56.339,
+      "lateral_kick_peak_road": 0.03,
       "oscillations": 1.5,
-      "pitch_peak_rad": 0.054,
-      "pitch_peak_screen_px": 20.488,
-      "roll_peak_rad": 0.054,
+      "pitch_peak_rad": 0.048,
+      "pitch_peak_screen_px": 18.167,
+      "roll_peak_rad": 0.049,
       "settle_s": 1.683,
       "speed_kmh": 70.0,
       "speed_lost_peak_kmh": 3.0
     },
     {
-      "body_peak_screen_px": 15.814,
-      "body_peak_units": 75.64,
-      "lateral_kick_peak_road": 0.041,
+      "body_peak_screen_px": 14.232,
+      "body_peak_units": 68.076,
+      "lateral_kick_peak_road": 0.037,
       "oscillations": 1.5,
-      "pitch_peak_rad": 0.062,
-      "pitch_peak_screen_px": 23.388,
-      "roll_peak_rad": 0.065,
+      "pitch_peak_rad": 0.059,
+      "pitch_peak_screen_px": 22.518,
+      "roll_peak_rad": 0.059,
       "settle_s": 1.683,
       "speed_kmh": 95.0,
       "speed_lost_peak_kmh": 3.0
@@ -221,6 +221,40 @@
       "speed_kmh": 95.0
     }
   ],
+  "side_merge": [
+    {
+      "bumps": 1,
+      "max_drop_per_frame_kmh": 0.0,
+      "min_distance_while_overlapping": 637.5,
+      "speed_kmh": 70.0,
+      "start_distance": 1500.0,
+      "v_min_kmh": 70.0
+    },
+    {
+      "bumps": 1,
+      "max_drop_per_frame_kmh": 6.0,
+      "min_distance_while_overlapping": 962.217,
+      "speed_kmh": 70.0,
+      "start_distance": 2500.0,
+      "v_min_kmh": 26.361
+    },
+    {
+      "bumps": 1,
+      "max_drop_per_frame_kmh": 0.0,
+      "min_distance_while_overlapping": 635.0,
+      "speed_kmh": 95.0,
+      "start_distance": 2500.0,
+      "v_min_kmh": 95.0
+    },
+    {
+      "bumps": 1,
+      "max_drop_per_frame_kmh": 10.167,
+      "min_distance_while_overlapping": 630.49,
+      "speed_kmh": 95.0,
+      "start_distance": 3500.0,
+      "v_min_kmh": 23.179
+    }
+  ],
   "tap": [
     {
       "lane_width_road": 0.667,
@@ -238,7 +272,7 @@
     }
   ],
   "visibility": "medida na imagem renderizada: veja visibility_rendered (qa/shots/visibility.json, gerado por run_qa.sh)",
-  "wall_time_s": 67.898,
+  "wall_time_s": 70.825,
   "visibility_rendered": {
     "cams": {
       "chase": {
@@ -247,71 +281,71 @@
         "pixels_changed_by_distance": [
           [
             3000,
-            169
-          ],
-          [
-            4000,
             143
           ],
           [
+            4000,
+            103
+          ],
+          [
             5000,
-            129
+            90
           ],
           [
             6000,
-            116
+            78
           ],
           [
             8000,
-            94
+            70
           ],
           [
             10000,
-            76
+            71
           ],
           [
             12000,
-            64
+            62
           ],
           [
             13500,
-            61
+            59
           ],
           [
             15000,
-            54
+            52
           ],
           [
             16500,
-            51
+            49
           ],
           [
             18000,
-            47
+            45
           ],
           [
             19500,
-            46
+            40
           ],
           [
             21000,
-            41
+            40
           ],
           [
             22500,
-            38
-          ],
-          [
-            24000,
-            35
-          ],
-          [
-            25500,
             36
           ],
           [
-            27000,
+            24000,
+            33
+          ],
+          [
+            25500,
             34
+          ],
+          [
+            27000,
+            33
           ]
         ],
         "readable_until_units": 27000.0,
@@ -324,71 +358,71 @@
         "pixels_changed_by_distance": [
           [
             3000,
-            286
+            252
           ],
           [
             4000,
-            220
+            153
           ],
           [
             5000,
-            181
+            112
           ],
           [
             6000,
-            150
+            101
           ],
           [
             8000,
-            119
+            99
           ],
           [
             10000,
-            94
+            81
           ],
           [
             12000,
-            75
+            72
           ],
           [
             13500,
-            68
+            64
           ],
           [
             15000,
-            63
+            59
           ],
           [
             16500,
-            57
+            54
           ],
           [
             18000,
-            51
+            48
           ],
           [
             19500,
-            50
+            45
           ],
           [
             21000,
-            43
-          ],
-          [
-            22500,
-            39
-          ],
-          [
-            24000,
             37
           ],
           [
+            22500,
+            31
+          ],
+          [
+            24000,
+            32
+          ],
+          [
             25500,
-            35
+            29
           ],
           [
             27000,
-            33
+            30
           ]
         ],
         "readable_until_units": 27000.0,
@@ -396,81 +430,81 @@
         "margin_95kmh_s": 2.16
       },
       "cockpit_rain_with_dash": {
-        "lead_time_70kmh_s": 3.83,
-        "lead_time_95kmh_s": 2.83,
+        "lead_time_70kmh_s": 3.61,
+        "lead_time_95kmh_s": 2.66,
         "pixels_changed_by_distance": [
           [
             3000,
-            286
+            252
           ],
           [
             4000,
-            220
+            153
           ],
           [
             5000,
-            181
+            112
           ],
           [
             6000,
-            150
+            101
           ],
           [
             8000,
-            119
+            99
           ],
           [
             10000,
-            94
+            80
           ],
           [
             12000,
-            75
+            72
           ],
           [
             13500,
-            68
+            64
           ],
           [
             15000,
-            63
+            59
           ],
           [
             16500,
-            57
+            54
           ],
           [
             18000,
-            51
+            48
           ],
           [
             19500,
-            50
+            45
           ],
           [
             21000,
-            43
+            37
           ],
           [
             22500,
-            39
+            31
           ],
           [
             24000,
-            34
-          ],
-          [
-            25500,
             30
           ],
           [
+            25500,
+            26
+          ],
+          [
             27000,
-            28
+            27
           ]
         ],
-        "readable_until_units": 25500.0,
-        "margin_70kmh_s": 3.0,
-        "margin_95kmh_s": 2.0
+        "readable_until_units": 24000.0,
+        "margin_70kmh_s": 2.78,
+        "margin_95kmh_s": 1.83
       }
     },
     "hole_w": 0.09,

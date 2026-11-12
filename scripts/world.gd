@@ -70,6 +70,22 @@ func _sprite(tx: Texture2D, ww: float, s: float, sx: float, sy: float, clip: flo
 			Rect2(0, 0, tx.get_width(), tx.get_height() * (1.0 - cut / h)), Color(1, 1, 1, alpha))
 	return Rect2(x, y, w, h)
 
+func _sign_far(w: float, sx: float, sy: float, clip: float, alpha: float) -> void:
+	if w < 0.8:
+		return
+	var h := w * 128.0 / 144.0
+	var x := roundf((sx - w / 2.0) * 2.0) / 2.0
+	var y := roundf((sy - h) * 2.0) / 2.0
+	if y + h * 0.5 > clip:
+		return
+	draw_rect(Rect2(x + w * 0.14, y + h * 0.45, maxf(0.5, w * 0.04), h * 0.55), Color(0.29, 0.30, 0.34, alpha))
+	draw_rect(Rect2(x + w * 0.82, y + h * 0.45, maxf(0.5, w * 0.04), h * 0.55), Color(0.29, 0.30, 0.34, alpha))
+	draw_rect(Rect2(x, y, w, h * 0.45), Color(0.90, 0.91, 0.93, alpha))
+	draw_rect(Rect2(x + 0.5, y + 0.5, w - 1.0, h * 0.45 - 1.0), Color(0.09, 0.28, 0.17, alpha))
+	if w >= 6.0:
+		draw_rect(Rect2(x + w * 0.2, y + h * 0.13, w * 0.6, 0.5), Color(0.90, 0.91, 0.93, alpha))
+		draw_rect(Rect2(x + w * 0.28, y + h * 0.28, w * 0.44, 0.5), Color(0.90, 0.91, 0.93, alpha))
+
 func _draw_player(sx: float, sy: float, s: float) -> void:
 	var hh: float = g.view.hh
 	var k := s * 1000.0 * W / 2.0 / 64.0
@@ -81,11 +97,12 @@ func _draw_player(sx: float, sy: float, s: float) -> void:
 	draw_circle(Vector2.ZERO, 1.0, Color(0, 0, 0, 0.5))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	for wx in [-28.0, 19.0]:   # wheels stay on the road; the body rides above them
-		draw_rect(Rect2(sx + wx * k, sy - 9.0 * k, 9.0 * k, 9.0 * k), Color("05070c"))   # top tucked behind the bumper
+		draw_rect(Rect2(sx + wx * k, sy - 7.0 * k, 9.0 * k, 7.0 * k), Color("05070c"))   # top tucked behind the bumper
+		draw_rect(Rect2(sx + (wx + 1.0) * k, sy - 7.0 * k, 7.0 * k, 2.0 * k), Color("2a2c33"))   # wet tyre catching the light
 		for tx in [1.5, 4.5, 7.0]:
-			draw_rect(Rect2(sx + (wx + tx) * k, sy - 7.0 * k, 0.5, 5.0 * k), Color("2a2c33"))
-	_reflect(sx - 23.0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.18))
-	_reflect(sx + 23.0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.18))
+			draw_rect(Rect2(sx + (wx + tx) * k, sy - 5.0 * k, 0.5, 4.0 * k), Color("2a2c33"))
+	_reflect(sx - 22.5 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.12))
+	_reflect(sx + 22.5 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.12))
 	draw_set_transform(Vector2(sx + g.vx * 2.5 * k, sy - 6.0 * k - e + g.pitch * 42.0 * k), g.roll * 1.9, Vector2.ONE)
 	draw_texture_rect(g.tex["player"], Rect2(-32.0 * k, -44.0 * k, 64.0 * k, 46.0 * k), false)
 	if g.brake:
@@ -247,9 +264,9 @@ func _draw() -> void:
 				var hw := maxf(bsw * fw, 1.5)
 				_trap(rim_c.lerp(fog, fa), f1, asy, maxf(asw * fw * 0.8, 1.5), f2, hy2, hw)
 				_trap(hole_c.lerp(fog, fa), f1, asy - (asy - hy2) * 0.25, maxf(asw * fw * 0.9, 1.2), f2, hy2, hw * 0.8)
-				var glint := pud_h.lerp(Color("c8d4e8"), 0.5)   # a floor on brightness so it reads at night too
-				draw_rect(Rect2(f2 - hw * 0.8, hy2, hw * 1.6, 0.5), glint.lerp(fog, fa))   # wet glint on the far edge
-				draw_rect(Rect2(f2 - hw * 1.2, hy2 - 1.0, hw * 2.4, 1.5), glint.lerp(fog, fa * 0.3))   # water in the hole catches the light from far away
+				var glint := pud_h.lerp(Color("8ec5ff"), 0.6)   # sky-blue water, not the white of the lane paint
+				draw_rect(Rect2(f2 - hw * 1.2, hy2 - 1.0, hw * 2.4, 1.0), glint.lerp(fog, fa * 0.3))
+				draw_rect(Rect2(f2 - hw * 0.8, hy2, hw * 1.6, 1.0), hole_c.lerp(fog, fa * 0.3))   # dark lip under it: a hole, not a dash
 
 	# rain in the air
 	var rain: float = g.rain
@@ -278,6 +295,9 @@ func _draw() -> void:
 		var a_s: float = sg.a_s
 		var clip: float = sg.clip
 		for q in sg.spr:
+			if q.kind == 4 and a_s * q.ww * W / 2.0 < 24.0:   # road sign too small for its text: draw a clean blank sign
+				_sign_far(a_s * q.ww * W / 2.0, asx + asw * q.off, asy, clip, alpha)
+				continue
 			var r := _sprite(q.tex, q.ww, a_s, asx + asw * q.off, asy, clip, alpha)
 			if r.size.x == 0.0:
 				continue

@@ -181,7 +181,7 @@ func _ready() -> void:
 	_build_surface()
 	for i in range(1, N):   # warn before every rough stretch
 		if ROUGH[i] > 0.25 and ROUGH[i - 1] <= 0.25:
-			_add_spr(i - 70, "sign3", 1.38, 1700.0)
+			_add_spr(i - 95, "sign3", 1.38, 1700.0, 4)   # ~2 s of warning at 100 km/h
 	_spawn_cars()
 	_init_weather()
 	_init_audio()
@@ -244,7 +244,7 @@ func _populate() -> void:
 		if randf() < 0.1:
 			_add_spr(i, "bush", randf_range(1.25, 1.7), 800.0)
 	for k in 9:
-		_add_spr(120 + k * int(N / 9.0), "sign%d" % [0, 1, 2, 4, 5][k % 5], 1.38, 1700.0)
+		_add_spr(120 + k * int(N / 9.0), "sign%d" % [0, 1, 2, 4, 5][k % 5], 1.38, 1700.0, 4)
 	for k in 6:
 		_add_spr(300 + k * int(N / 6.0), "board%d" % (k % BOARD_COUNT), 2.3, 2600.0)
 	for f in [0.3, 0.78]:
@@ -254,7 +254,7 @@ func _populate() -> void:
 			var s = segs[posmod(i + d, N)]
 			s.spr = s.spr.filter(func(q): return q.kind == 1 or q.off < 0.0)
 		_add_spr(i, "posto", 2.75, 5600.0, 3)
-		_add_spr(i - 150, "sign_posto", 1.38, 1700.0)
+		_add_spr(i - 150, "sign_posto", 1.38, 1700.0, 4)
 		for d in range(-60, 61, 20):
 			if absi(d) > 10:
 				_add_spr(i + d, "lamp", 1.25, 1100.0, 2)
@@ -524,7 +524,7 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 		if not l and not r:
 			return
 		var side := 0.0 if (l and r) else (-1.0 if l else 1.0)
-		var k := 0.5 + sp
+		var k := (0.5 + sp) * (0.75 + 5.0 * clampf(f.w - 0.07, 0.0, 0.05)) * (1.3 if side == 0.0 else 1.0)   # bigger hole, harder hit; both wheels, harder still
 		zb_v += 500.0 * k
 		roll_v += side * 0.36 * k
 		pitch_v += 0.7 * minf(k, 1.35)
@@ -676,7 +676,7 @@ func _process(dt: float) -> void:
 		if lane != press_lane:   # just changed lane (or never steered): settle into the lane centre
 			px += (LANES[lane] - px) * minf(1.0, 2.5 * dt)
 		elif free_t > 0.5:       # hands off after a nudge: hold that line, even through the bend
-			px += (hold_x - px) * minf(1.0, 2.5 * dt) + curve * sp * sp * dt * 0.16
+			px += (hold_x - px) * minf(1.0, 2.5 * dt) + curve * sp * sp * dt * 0.16 * 0.6   # the bend still leans you out a little
 		else:                    # small correction in the same lane: only a weak pull, fine control stays
 			vx += (LANES[lane] - px) * 1.5 * dt
 	px += vx * dt - (0.0 if is_auto else curve * sp * sp * dt * 0.16)
@@ -770,9 +770,16 @@ func _process(dt: float) -> void:
 			var dxl := absf(c.x - px)
 			if d > TRACK - 1400.0 and dxl < 0.5:
 				cv = minf(cv, v)
-			if d < 1250.0 and d > 250.0 and dxl < 0.46 and v > c.v:
+			var swipe := (d <= 250.0 or d > TRACK - 500.0) and dxl < 0.46   # alongside: no driving through cars
+			if swipe:
+				var sgn := 1.0 if px >= c.x else -1.0
+				px = c.x + sgn * 0.46
+				vx = sgn * 0.45
+				kick = sgn * 0.5
+			if (d < 1250.0 and d > 250.0 and dxl < 0.46 and v > c.v) or swipe:
 				sfx["bump"].volume_db = linear_to_db(0.4 + 0.6 * clampf((v - c.v) / 40.0, 0.0, 1.0))
-				v = lerpf(v, maxf(0.0, cv - 6.0), 0.6)
+				if not swipe:
+					v = lerpf(v, maxf(0.0, cv - 6.0), minf(1.0, dt * 10.0))   # a firm shove over ~0.2 s, not a wall
 				if bump_t <= 0.0 and started:   # a nudge costs one step of the multiplier, not all of it
 					bump_t = 2.0
 					mult = maxi(1, mult - 1)

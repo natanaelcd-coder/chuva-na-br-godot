@@ -360,6 +360,34 @@ func nudge_dodge(v: float) -> Dictionary:
 		await drop()
 	return {"speed_kmh": v, "runs": rows}
 
+# Lane merge next to a slow car: the player moves middle -> right with a 40 km/h car D units ahead in the right lane.
+func side_merge(v: float, dist: float) -> Dictionary:
+	await make(1, true)
+	var i0 := longest_straight()
+	place(i0, 0.0, v)
+	g.set_auto(false)
+	g.cars.append({"z": g.pos + dist, "x": 0.667, "v": 40.0, "tex": g.tex["car0"], "dir": 1})
+	var car = g.cars[-1]
+	await step(5)
+	g.bot_steer = 1.0
+	var max_drop := 0.0
+	var v_min: float = g.v
+	var min_overlap := 1e9
+	for i in 240:
+		var v_prev: float = g.v
+		if g.px >= 0.6:
+			g.bot_steer = 0.0
+		await process_frame
+		max_drop = maxf(max_drop, v_prev - g.v)
+		v_min = minf(v_min, g.v)
+		var d := absf(fposmod(car.z - g.pos + g.TRACK / 2.0, g.TRACK) - g.TRACK / 2.0)
+		if absf(car.x - g.px) < 0.46:
+			min_overlap = minf(min_overlap, d)
+	var res = {"speed_kmh": v, "start_distance": dist, "bumps": g.n_bumps, "max_drop_per_frame_kmh": r3(max_drop),
+		"v_min_kmh": r3(v_min), "min_distance_while_overlapping": r3(min_overlap) if min_overlap < 1e9 else -1}
+	await drop()
+	return res
+
 func autopilot(seconds: float) -> Dictionary:
 	await make(3, false, true)
 	g.set_auto(true)
@@ -395,6 +423,7 @@ func _run() -> void:
 	out["full_drive"] = [await full_drive(70.0, 120.0, 1.6), await full_drive(90.0, 120.0, 1.6)]
 	out["autopilot"] = await autopilot(90.0)
 	out["nudge_dodge"] = [await nudge_dodge(70.0), await nudge_dodge(95.0)]
+	out["side_merge"] = [await side_merge(70.0, 1500.0), await side_merge(70.0, 2500.0), await side_merge(95.0, 2500.0), await side_merge(95.0, 3500.0)]
 	out["visibility"] = "medida na imagem renderizada: veja visibility_rendered (qa/shots/visibility.json, gerado por run_qa.sh)"
 	if shots:
 		await make(1, false, true)
@@ -457,7 +486,7 @@ func _diff(a: Image, b: Image) -> int:
 	var n := 0
 	for y in range(0, a.get_height()):
 		for x in range(0, a.get_width()):
-			if a.get_pixel(x, y) != b.get_pixel(x, y):
+			if absf(a.get_pixel(x, y).get_luminance() - b.get_pixel(x, y).get_luminance()) > 0.06:   # round-05 report: count visible change only
 				n += 1
 	return n
 
