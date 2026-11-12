@@ -1,0 +1,3 @@
+.godot/
+*.zip
+qa/metrics/stderr.txt

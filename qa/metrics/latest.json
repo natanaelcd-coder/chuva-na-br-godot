@@ -1,0 +1,160 @@
+{
+  "autopilot": {
+    "car_bumps": 0,
+    "holes_hit": 1,
+    "puddles_hit": 3,
+    "seconds": 90.0
+  },
+  "curve_follow": [
+    {
+      "curve_strength": 3.0,
+      "key_held_fraction": 0.63,
+      "key_presses_per_s": 1.2,
+      "max_error_road": 0.269,
+      "offroad_s": 0.0,
+      "reaction_delay_s": 0.15,
+      "rms_error_road": 0.128,
+      "speed_kmh": 70.0
+    },
+    {
+      "curve_strength": 3.0,
+      "key_held_fraction": 0.675,
+      "key_presses_per_s": 1.2,
+      "max_error_road": 0.306,
+      "offroad_s": 0.0,
+      "reaction_delay_s": 0.15,
+      "rms_error_road": 0.137,
+      "speed_kmh": 95.0
+    }
+  ],
+  "full_drive": [
+    {
+      "car_bumps": 1,
+      "hazards_passed": 18,
+      "hazards_per_min": 9.0,
+      "holes_hit": 2,
+      "lane_changes": 10,
+      "lookahead_s": 1.6,
+      "offroad_s": 0.0,
+      "puddles_hit": 1,
+      "score": 35204,
+      "seconds": 120.0,
+      "speed_kmh": 70.0
+    },
+    {
+      "car_bumps": 0,
+      "hazards_passed": 18,
+      "hazards_per_min": 9.0,
+      "holes_hit": 1,
+      "lane_changes": 17,
+      "lookahead_s": 1.6,
+      "offroad_s": 0.0,
+      "puddles_hit": 3,
+      "score": 56510,
+      "seconds": 120.0,
+      "speed_kmh": 90.0
+    }
+  ],
+  "generated_at": "2026-11-12T12:10:47",
+  "lane_change": [
+    {
+      "overshoot_road": 0.055,
+      "response_delay_s": 0.167,
+      "roll_peak_rad": 0.056,
+      "settle_s": 3.133,
+      "speed_kmh": 50.0,
+      "time_to_target_s": 0.833
+    },
+    {
+      "overshoot_road": 0.055,
+      "response_delay_s": 0.183,
+      "roll_peak_rad": 0.055,
+      "settle_s": 3.067,
+      "speed_kmh": 70.0,
+      "time_to_target_s": 0.833
+    },
+    {
+      "overshoot_road": 0.07,
+      "response_delay_s": 0.183,
+      "roll_peak_rad": 0.053,
+      "settle_s": 4.067,
+      "speed_kmh": 95.0,
+      "time_to_target_s": 0.85
+    }
+  ],
+  "pothole": [
+    {
+      "body_peak_screen_px": 7.067,
+      "body_peak_units": 33.803,
+      "lateral_kick_road": 0.004,
+      "oscillations": 1.5,
+      "pitch_peak_rad": 0.013,
+      "roll_peak_rad": 0.042,
+      "settle_s": 1.683,
+      "speed_kmh": 40.0,
+      "speed_lost_kmh": 0.0
+    },
+    {
+      "body_peak_screen_px": 9.423,
+      "body_peak_units": 45.071,
+      "lateral_kick_road": 0.004,
+      "oscillations": 1.5,
+      "pitch_peak_rad": 0.02,
+      "roll_peak_rad": 0.055,
+      "settle_s": 1.683,
+      "speed_kmh": 70.0,
+      "speed_lost_kmh": 0.0
+    },
+    {
+      "body_peak_screen_px": 11.386,
+      "body_peak_units": 54.461,
+      "lateral_kick_road": 0.004,
+      "oscillations": 1.5,
+      "pitch_peak_rad": 0.025,
+      "roll_peak_rad": 0.065,
+      "settle_s": 1.683,
+      "speed_kmh": 95.0,
+      "speed_lost_kmh": 0.0
+    }
+  ],
+  "ride": {
+    "body_rms_units": 22.933,
+    "pitch_max_rad": 0.062,
+    "pitch_max_screen_px": 23.563,
+    "pitch_rms_rad": 0.03,
+    "roll_rms_rad": 0.014,
+    "seconds": 40.0,
+    "speed_kmh": 70.0
+  },
+  "tap": [
+    {
+      "lane_width_road": 0.667,
+      "lateral_move_road": 0.051,
+      "speed_kmh": 50.0,
+      "tap_s": 0.15
+    },
+    {
+      "lane_width_road": 0.667,
+      "lateral_move_road": 0.049,
+      "speed_kmh": 90.0,
+      "tap_s": 0.15
+    }
+  ],
+  "visibility": [
+    {
+      "hole_readable_at_units": 29030.4,
+      "lane_change_s": 0.833,
+      "lead_time_s": 4.365,
+      "margin_s": 3.532,
+      "speed_kmh": 70.0
+    },
+    {
+      "hole_readable_at_units": 29030.4,
+      "lane_change_s": 0.85,
+      "lead_time_s": 3.217,
+      "margin_s": 2.367,
+      "speed_kmh": 95.0
+    }
+  ],
+  "wall_time_s": 45.602
+}
