@@ -413,12 +413,18 @@ func cut_in_front() -> Dictionary:
 	await drop()
 	return res
 
+# round-07 report: one seed hid the autopilot's bumps, so sum four seeds
 func autopilot(seconds: float) -> Dictionary:
-	await make(3, false, true)
-	g.set_auto(true)
-	await step(int(seconds / DT))
-	var res = {"seconds": seconds, "holes_hit": g.n_holes, "puddles_hit": g.n_puddles, "car_bumps": g.n_bumps}
-	await drop()
+	var res = {"seconds_each": seconds, "seeds": [2, 3, 5, 7], "holes_hit": 0, "puddles_hit": 0, "car_bumps": 0, "per_seed_bumps": []}
+	for sd in res.seeds:
+		await make(sd, false, true)
+		g.set_auto(true)
+		await step(int(seconds / DT))
+		res.holes_hit += g.n_holes
+		res.puddles_hit += g.n_puddles
+		res.car_bumps += g.n_bumps
+		res.per_seed_bumps.append(g.n_bumps)
+		await drop()
 	return res
 
 # How early a pothole becomes readable on screen (4 real pixels wide) vs. how long a lane change takes.

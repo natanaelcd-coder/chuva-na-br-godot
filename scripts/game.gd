@@ -130,6 +130,7 @@ var e_amb := 0.7
 var touch_steer := 0.0
 var press_lane := -1
 var free_t := 0.0
+var last_gear_lo := -1.0
 var hold_x := 0.0
 var prev_input := 0.0
 # test hooks (tests/test_drive.gd): simulated keys and event counters
@@ -277,7 +278,7 @@ func _build_surface() -> void:
 		segs[i].y2 = Y[(i + 1) % N]
 	var last_hole := -100
 	for i in range(60, N):
-		if i - last_hole >= 16 and randf() < 0.001 + ROUGH[i] * 0.008:
+		if i - last_hole >= 20 and randf() < 0.001 + ROUGH[i] * 0.008:
 			last_hole = i
 			segs[i].feat.append({"t": 0, "x": LANES.pick_random() + randf_range(-0.22, 0.22), "w": randf_range(0.07, 0.12)})
 		if ROUGH[i] > 0.25 and randf() < 0.3:
@@ -617,9 +618,10 @@ func _process(dt: float) -> void:
 	if off:
 		tgt = minf(tgt, 30.0)
 	var close := false
-	if started and not auto:   # cruise control yields to the car ahead instead of ramming it
+	if started:   # cruise control (and the autopilot) yields to the car ahead instead of ramming it
+		var px_soon := px + vx * 0.4   # also the lane we are drifting into
 		for c in cars:
-			if c.dir > 0 and absf(c.x - px) < 0.46:
+			if c.dir > 0 and (absf(c.x - px) < 0.46 or absf(c.x - px_soon) < 0.46 or (auto and absf(c.x - LANES[lane]) < 0.3)):
 				var dd := fposmod(c.z - pos, TRACK)
 				if dd > 250.0 and dd < 9000.0:   # square-root braking curve: always enough room to slow down
 					if dd < 1600.0:   # already inside the gap: settle just under its speed, don't sink below it
@@ -668,7 +670,7 @@ func _process(dt: float) -> void:
 		if free_t > 0.5 and free_t - dt <= 0.5 and lane == press_lane:   # the nudge is over: keep the line the player chose
 			hold_x = clampf(px, LANES[lane] - 0.2, LANES[lane] + 0.2)
 	prev_input = dir if not is_auto else 0.0
-	var rate := 5.0 if absf(dir) > absf(steer) else 12.0   # quick to centre, a little slower to turn in
+	var rate := 6.0 if absf(dir) > absf(steer) else 12.0   # quick to centre, a little slower to turn in
 	steer += clampf(dir - steer, -dt * rate, dt * rate)
 	aqua = maxf(0.0, aqua - dt)
 	splash_t = maxf(0.0, splash_t - dt)
@@ -682,8 +684,15 @@ func _process(dt: float) -> void:
 			px += (hold_x - px) * minf(1.0, 2.5 * dt) + curve * sp * sp * dt * 0.16 * 0.3   # the bend still leans you out a little
 		else:                    # small correction in the same lane: only a weak pull, fine control stays
 			vx += (LANES[lane] - px) * 1.5 * dt
-	px += vx * dt - (0.0 if is_auto else curve * sp * sp * dt * 0.16)
+	px += vx * dt - (0.0 if is_auto else curve * sp * sp * dt * 0.14)
 	if px < -1.06:
+		if vx < -0.2 and started and bump_t <= 0.0:   # scraping the median guard rail: you hear and feel it
+			bump_t = 2.0
+			sfx["bump"].volume_db = linear_to_db(clampf(absf(vx), 0.3, 1.0))
+			_sfx("bump")
+			kick = -0.4
+			roll_v += 0.3
+			hud.toast("EPA, GUARD-RAIL!", 1.5)
 		px = -1.06
 		vx = maxf(vx, 0.0)
 	if px > 1.7:
@@ -795,8 +804,9 @@ func _process(dt: float) -> void:
 					v = lerpf(v, maxf(0.0, cv - 6.0), minf(1.0, dt * 10.0))   # a firm shove over ~0.2 s, not a wall
 				if bump_t <= 0.0 and started:   # a nudge costs one step of the multiplier, not all of it
 					bump_t = 2.0
-					mult = maxi(1, mult - 1)
-					clean = minf(clean, (mult - 1) * 25.0)
+					if not auto:   # the autopilot's fault is not the player's
+						mult = maxi(1, mult - 1)
+						clean = minf(clean, (mult - 1) * 25.0)
 					bob_v += 9.0
 					dice_v += 3.0
 					pitch_v -= 0.5
@@ -875,7 +885,15 @@ func _process(dt: float) -> void:
 	if started:
 		a_rain.volume_db = linear_to_db(maxf(rain * 0.09, 0.0001))
 		a_engine.volume_db = linear_to_db(0.05 + sp * 0.03)
-		a_engine.pitch_scale = (38.0 + v * 0.75) / 60.0
+		# four-speed box: revs climb within each gear and sag at every shift
+		var g_lo: float = 0.0 if v < 16.0 else (16.0 if v < 32.0 else (32.0 if v < 52.0 else 52.0))
+		var g_hi: float = 16.0 if v < 16.0 else (32.0 if v < 32.0 else (52.0 if v < 52.0 else 110.0))
+		var rpm := clampf((v - g_lo) / (g_hi - g_lo), 0.0, 1.0)
+		a_engine.pitch_scale = lerpf(a_engine.pitch_scale, 0.9 + 0.45 * rpm, minf(1.0, dt * 8.0))
+		if g_lo != last_gear_lo:
+			if g_lo > last_gear_lo and last_gear_lo >= 0.0:
+				pitch_v -= 0.15   # small lurch of the body on the upshift
+			last_gear_lo = g_lo
 		a_rumble.volume_db = linear_to_db(maxf(0.0001, ((rough - 0.6) * 0.04 + ROUGH[int(pos / SEG) % N] * 0.10) * sp + (0.1 if off else 0.0)))
 		a_rumble.pitch_scale = 0.8 + 0.4 * sp
 		a_hiss.volume_db = linear_to_db(maxf(0.0001, clampf(absf(curve * sp * sp) * 0.04 + aqua * 0.12 + rain * sp * 0.015, 0.0, 0.15)))

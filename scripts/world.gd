@@ -92,7 +92,15 @@ func _board_far(tx: Texture2D, w: float, sx: float, sy: float, clip: float, alph
 		return
 	if not _board_cols.has(tx):
 		var img := tx.get_image()
-		_board_cols[tx] = [img.get_pixel(8, 8), img.get_pixel(img.get_width() / 2, int(img.get_height() * 0.3))]
+		var bg0 := img.get_pixel(8, 8)
+		var fg0 := bg0
+		var row := int(img.get_height() * 0.3)
+		for x in range(8, img.get_width() - 8):   # first colour on that row that isn't the background: the lettering
+			var c := img.get_pixel(x, row)
+			if c.a > 0.5 and absf(c.get_luminance() - bg0.get_luminance()) > 0.15:
+				fg0 = c
+				break
+		_board_cols[tx] = [bg0, fg0]
 	var bg: Color = _board_cols[tx][0]
 	var fg: Color = _board_cols[tx][1]
 	if fg.is_equal_approx(bg):
@@ -195,7 +203,7 @@ func _draw() -> void:
 	var grass: Color = g.e_gr
 	var grass2 := grass.lerp(Color.BLACK, 0.18)
 	var line: Color = g.e_line
-	var hole_c := road0.lerp(Color.BLACK, 0.7)
+	var hole_c := road0.lerp(Color.BLACK, 0.8)
 	var rim_c := road0.lerp(Color.WHITE, 0.2)
 	var patch_c := road0.lerp(Color.BLACK, 0.32)
 	var pud_c := hor.lerp(road0, 0.35)
@@ -289,8 +297,8 @@ func _draw() -> void:
 				_trap(rim_c.lerp(fog, fa), f1, asy, maxf(asw * fw * 0.8, 1.5), f2, hy2, hw)
 				_trap(hole_c.lerp(fog, fa), f1, asy - (asy - hy2) * 0.25, maxf(asw * fw * 0.9, 1.2), f2, hy2, hw * 0.8)
 				var glint := pud_h.lerp(Color("8ec5ff"), 0.6)   # sky-blue water, not the white of the lane paint
-				draw_rect(Rect2(f2 - hw * 1.2, hy2, hw * 2.4, 1.5), hole_c.lerp(fog, fa * 0.3))         # the hole is the dark part, and the widest
-				draw_rect(Rect2(f2 - hw * 0.9, hy2 - 1.0, hw * 1.8, 1.0), glint.lerp(fog, fa * 0.3))   # water glint on its far lip, narrower than the hole
+				draw_rect(Rect2(f2 - hw * 1.2, hy2 - 0.5, hw * 2.4, 2.0), hole_c.lerp(fog, fa * 0.3))   # the hole is the dark part, and the widest
+				draw_rect(Rect2(f2 - hw * 0.9, hy2 - 1.0, hw * 1.2, 1.0), glint.lerp(fog, fa * 0.3))   # a small water glint off-centre on its far lip
 
 	# rain in the air
 	var rain: float = g.rain
