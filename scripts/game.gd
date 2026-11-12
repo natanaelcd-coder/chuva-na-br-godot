@@ -131,6 +131,11 @@ var touch_steer := 0.0
 var press_lane := -1
 var free_t := 0.0
 var last_gear_lo := -1.0
+var off_t := 0.0
+var gear_i := 0
+var gear_cand_t := 0.0
+const GEAR_LO := [0.0, 16.0, 32.0, 52.0]
+const GEAR_HI := [16.0, 32.0, 52.0, 110.0]
 var hold_x := 0.0
 var prev_input := 0.0
 # test hooks (tests/test_drive.gd): simulated keys and event counters
@@ -520,8 +525,8 @@ func _splash() -> void:
 func _hit_feat(f: Dictionary, sp: float) -> void:
 	var d: float = f.x - px
 	if f.t == 0:   # pothole: which wheel took it?
-		var l: bool = absf(d + 0.2) < f.w + 0.06
-		var r: bool = absf(d - 0.2) < f.w + 0.06
+		var l: bool = absf(d + 0.2) < f.w + 0.06 or absf(d) < 0.06   # dead centre: both wheels drop in
+		var r: bool = absf(d - 0.2) < f.w + 0.06 or absf(d) < 0.06
 		if not l and not r:
 			return
 		var side := 0.0 if (l and r) else (-1.0 if l else 1.0)
@@ -614,14 +619,14 @@ func _process(dt: float) -> void:
 	var tgt := target if started else 55.0
 	if fuel <= 0.0:
 		tgt = minf(tgt, 25.0)
-	var off := absf(px) > 1.02
-	if off:
+	var off := px > 1.02   # the median side is the guard rail's job
+	off_t = off_t + dt if off else 0.0
+	if off_t > 0.4:   # a wheel over the line for a moment is not leaving the road
 		tgt = minf(tgt, 30.0)
 	var close := false
 	if started:   # cruise control (and the autopilot) yields to the car ahead instead of ramming it
-		var px_soon := px + vx * 0.4   # also the lane we are drifting into
 		for c in cars:
-			if c.dir > 0 and (absf(c.x - px) < 0.46 or absf(c.x - px_soon) < 0.46 or (auto and absf(c.x - LANES[lane]) < 0.3)):
+			if c.dir > 0 and (absf(c.x - px) < 0.46 or (auto and absf(c.x - LANES[lane]) < 0.3)):
 				var dd := fposmod(c.z - pos, TRACK)
 				if dd > 250.0 and dd < 9000.0:   # square-root braking curve: always enough room to slow down
 					if dd < 1600.0:   # already inside the gap: settle just under its speed, don't sink below it
@@ -677,7 +682,7 @@ func _process(dt: float) -> void:
 	var grip := (1.0 - 0.3 * rain * sp) * (0.3 if aqua > 0.0 else 1.0)
 	var vx0 := vx
 	vx += (steer * 1.0 * minf(1.0, sp * 2.5) - vx) * minf(1.0, dt * 9.0 * grip)
-	if dir == 0.0 and not is_auto and aqua <= 0.0 and absf(px) < 1.02:
+	if dir == 0.0 and not is_auto and aqua <= 0.0 and px < 1.02:
 		if lane != press_lane:   # just changed lane (or never steered): settle into the lane centre
 			px += (LANES[lane] - px) * minf(1.0, 2.5 * dt)
 		elif free_t > 0.5:       # hands off after a nudge: hold that line, even through the bend
@@ -692,9 +697,13 @@ func _process(dt: float) -> void:
 			_sfx("bump")
 			kick = -0.4
 			roll_v += 0.3
+			mult = maxi(1, mult - 1)   # a scrape costs a step, like a nudge
+			clean = minf(clean, (mult - 1) * 25.0)
 			hud.toast("EPA, GUARD-RAIL!", 1.5)
 		px = -1.06
 		vx = maxf(vx, 0.0)
+	if px <= -1.04:   # holding it against the rail scrubs speed
+		v = maxf(0.0, v - 12.0 * dt)
 	if px > 1.7:
 		px = 1.7
 		vx = minf(vx, 0.0)
@@ -755,7 +764,7 @@ func _process(dt: float) -> void:
 			hud.toast("NA RESERVA: POSTO NA FAIXA DA DIREITA", 4.0)
 		if not off and v > 20.0:
 			clean += dt
-		elif off:
+		elif off_t > 0.4:
 			clean = 0.0
 		var m := 1 + mini(3, int(clean / 25.0))
 		if m > mult:
@@ -886,8 +895,23 @@ func _process(dt: float) -> void:
 		a_rain.volume_db = linear_to_db(maxf(rain * 0.09, 0.0001))
 		a_engine.volume_db = linear_to_db(0.05 + sp * 0.03)
 		# four-speed box: revs climb within each gear and sag at every shift
-		var g_lo: float = 0.0 if v < 16.0 else (16.0 if v < 32.0 else (32.0 if v < 52.0 else 52.0))
-		var g_hi: float = 16.0 if v < 16.0 else (32.0 if v < 32.0 else (52.0 if v < 52.0 else 110.0))
+		# at a steady speed an old car shifts up early instead of holding the top of a gear
+		var cruising := absf(v - v0) / maxf(dt, 0.001) < 2.0
+		var early := 8.0 if cruising else 0.0
+		var cand := 0
+		for gi in range(1, 4):
+			if v >= GEAR_LO[gi] - early:
+				cand = gi
+		var outside: bool = v < GEAR_LO[gear_i] - early - 0.5 or v > GEAR_HI[gear_i] + 0.5
+		if cand != gear_i:
+			gear_cand_t += dt
+			if gear_cand_t > 0.5 or outside:
+				gear_i = cand
+				gear_cand_t = 0.0
+		else:
+			gear_cand_t = 0.0
+		var g_lo: float = GEAR_LO[gear_i]
+		var g_hi: float = GEAR_HI[gear_i]
 		var rpm := clampf((v - g_lo) / (g_hi - g_lo), 0.0, 1.0)
 		a_engine.pitch_scale = lerpf(a_engine.pitch_scale, 0.9 + 0.45 * rpm, minf(1.0, dt * 8.0))
 		if g_lo != last_gear_lo:
@@ -907,5 +931,5 @@ func _process(dt: float) -> void:
 				radio_song = (radio_song + 1) % STATIONS[radio_st].songs.size()
 				_now_playing()
 
-	var gear := "N" if v < 1.0 else ("1ª" if v < 16.0 else ("2ª" if v < 32.0 else ("3ª" if v < 52.0 else "4ª")))
+	var gear: String = "N" if v < 1.0 else ["1ª", "2ª", "3ª", "4ª"][gear_i]   # the same gear the engine sound uses
 	hud.set_values(score, hi, v, gear, fuel)

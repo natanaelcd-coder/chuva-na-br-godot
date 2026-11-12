@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://byjgd00bkyigp"
-path="res://.godot/imported/PressStart2P.ttf-575365d8537b7ec81e37fab7878bde5c.fontdata"
+uid="uid://5gsq8qxe4t7r"
+path="res://.godot/imported/Estrada2P.ttf-4842263d2ddd680cebc5214c30e760b4.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/PressStart2P.ttf"
-dest_files=["res://.godot/imported/PressStart2P.ttf-575365d8537b7ec81e37fab7878bde5c.fontdata"]
+source_file="res://assets/fonts/Estrada2P.ttf"
+dest_files=["res://.godot/imported/Estrada2P.ttf-4842263d2ddd680cebc5214c30e760b4.fontdata"]
 
 [params]
 

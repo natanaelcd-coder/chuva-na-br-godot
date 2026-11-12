@@ -32,6 +32,6 @@ Jogo relaxante de dirigir em pixel art: carro antigo de molas macias, estrada ch
 - `shaders/palette.gdshader`: reduz o quadro a 55 cores com pontilhado.
 - `assets/sprites`: PNGs em 2x (uma unidade lógica = 2 pixels). Edite num editor de pixel art e o jogo usa a nova versão.
 - `assets/audio`: três estações de rádio em loop, chuva, motor e efeitos.
-- `assets/fonts/PressStart2P.ttf`: fonte Press Start 2P (licença SIL Open Font).
+- `assets/fonts/Estrada2P.ttf`: fonte Estrada 2P, versão da Press Start 2P com as maiúsculas acentuadas redesenhadas em altura cheia (licença SIL Open Font, em `assets/fonts/OFL.txt`).
 
 A tela interna é 768x432, ampliada sem filtro. Os scripts desenham em unidades lógicas de 384x216.

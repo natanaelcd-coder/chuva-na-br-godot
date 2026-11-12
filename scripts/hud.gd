@@ -4,7 +4,7 @@ extends CanvasLayer
 const AMBER := Color("f2a62a")
 const LINE := Color("9bbbe0")
 const PANEL := Color("0b1120")
-var font: FontFile = preload("res://assets/fonts/PressStart2P.ttf")
+var font: FontFile = preload("res://assets/fonts/Estrada2P.ttf")
 var l_score: Label
 var l_hi: Label
 var l_toast: Label

@@ -64,17 +64,17 @@
       "car_bumps": 1,
       "hazards_passed": 21,
       "hazards_per_min": 10.5,
-      "holes_hit": 0,
+      "holes_hit": 1,
       "lane_changes": 19,
       "lookahead_s": 1.6,
       "offroad_s": 0.0,
       "puddles_hit": 0,
-      "score": 58979,
+      "score": 54662,
       "seconds": 120.0,
       "speed_kmh": 90.0
     }
   ],
-  "generated_at": "2026-11-12T21:45:01",
+  "generated_at": "2026-11-12T23:18:18",
   "lane_change": [
     {
       "overshoot_road": 0.042,
@@ -243,51 +243,51 @@
   "side_merge": [
     {
       "bumps": 1,
-      "max_drop_per_frame_kmh": 3.944,
-      "max_lateral_jump_per_frame_road": 0.018,
-      "min_distance_in_lane_or_touching": 8.987,
+      "max_drop_per_frame_kmh": 0.0,
+      "max_lateral_jump_per_frame_road": 0.019,
+      "min_distance_in_lane_or_touching": 115.0,
       "multiplier_end": 2,
       "multiplier_start": 3,
       "px_end": 0.667,
       "speed_kmh": 70.0,
       "start_distance": 1500.0,
-      "v_min_kmh": 50.322
+      "v_min_kmh": 70.0
     },
     {
       "bumps": 1,
-      "max_drop_per_frame_kmh": 3.85,
-      "max_lateral_jump_per_frame_road": 0.018,
-      "min_distance_in_lane_or_touching": 1258.667,
+      "max_drop_per_frame_kmh": 6.0,
+      "max_lateral_jump_per_frame_road": 0.017,
+      "min_distance_in_lane_or_touching": 1009.717,
       "multiplier_end": 2,
       "multiplier_start": 3,
       "px_end": 0.667,
       "speed_kmh": 70.0,
       "start_distance": 2500.0,
-      "v_min_kmh": 38.31
+      "v_min_kmh": 37.117
     },
     {
       "bumps": 1,
-      "max_drop_per_frame_kmh": 1.167,
+      "max_drop_per_frame_kmh": 0.0,
       "max_lateral_jump_per_frame_road": 0.018,
-      "min_distance_in_lane_or_touching": 155.857,
+      "min_distance_in_lane_or_touching": 25.417,
       "multiplier_end": 2,
       "multiplier_start": 3,
       "px_end": 0.667,
       "speed_kmh": 95.0,
       "start_distance": 2500.0,
-      "v_min_kmh": 79.833
+      "v_min_kmh": 95.0
     },
     {
       "bumps": 1,
-      "max_drop_per_frame_kmh": 8.611,
-      "max_lateral_jump_per_frame_road": 0.018,
-      "min_distance_in_lane_or_touching": 1007.854,
+      "max_drop_per_frame_kmh": 10.167,
+      "max_lateral_jump_per_frame_road": 0.017,
+      "min_distance_in_lane_or_touching": 717.574,
       "multiplier_end": 2,
       "multiplier_start": 3,
       "px_end": 0.667,
       "speed_kmh": 95.0,
       "start_distance": 3500.0,
-      "v_min_kmh": 37.108
+      "v_min_kmh": 35.713
     }
   ],
   "tap": [
@@ -307,7 +307,7 @@
     }
   ],
   "visibility": "medida na imagem renderizada: veja visibility_rendered (qa/shots/visibility.json, gerado por run_qa.sh)",
-  "wall_time_s": 98.161,
+  "wall_time_s": 103.375,
   "visibility_rendered": {
     "cams": {
       "chase": {
