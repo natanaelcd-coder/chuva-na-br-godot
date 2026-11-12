@@ -29,6 +29,7 @@ func make(seed_v: int, clean: bool, traffic := false):
 		g.NOISE.fill(0.0)
 	if not traffic:
 		g.cars.clear()
+	seed(seed_v * 7919 + 1)   # reseed after setup so a scenario doesn't depend on the ones before it
 	g.begin()
 	g.hud.toast_t = 0.0
 	return g
@@ -373,18 +374,42 @@ func side_merge(v: float, dist: float) -> Dictionary:
 	var max_drop := 0.0
 	var v_min: float = g.v
 	var min_overlap := 1e9
+	var max_jump := 0.0
+	g.mult = 3
+	g.clean = 60.0
 	for i in 240:
 		var v_prev: float = g.v
+		var px_prev: float = g.px
 		if g.px >= 0.6:
 			g.bot_steer = 0.0
 		await process_frame
 		max_drop = maxf(max_drop, v_prev - g.v)
+		max_jump = maxf(max_jump, absf(g.px - px_prev))
 		v_min = minf(v_min, g.v)
 		var d := absf(fposmod(car.z - g.pos + g.TRACK / 2.0, g.TRACK) - g.TRACK / 2.0)
-		if absf(car.x - g.px) < 0.46:
+		if absf(car.x - g.px) <= 0.461:
 			min_overlap = minf(min_overlap, d)
 	var res = {"speed_kmh": v, "start_distance": dist, "bumps": g.n_bumps, "max_drop_per_frame_kmh": r3(max_drop),
-		"v_min_kmh": r3(v_min), "min_distance_while_overlapping": r3(min_overlap) if min_overlap < 1e9 else -1}
+		"v_min_kmh": r3(v_min), "min_distance_in_lane_or_touching": r3(min_overlap) if min_overlap < 1e9 else -1,
+		"max_lateral_jump_per_frame_road": r3(max_jump), "multiplier_start": 3, "multiplier_end": g.mult, "px_end": r3(g.px)}
+	await drop()
+	return res
+
+# The player at 50 km/h moves right in front of a 60 km/h car 400 units behind (round-06 report, test c).
+func cut_in_front() -> Dictionary:
+	await make(1, true)
+	place(longest_straight(), 0.0, 50.0)
+	g.set_auto(false)
+	g.cars.append({"z": fposmod(g.pos - 400.0, g.TRACK), "x": 0.667, "v": 60.0, "tex": g.tex["car0"], "dir": 1})
+	g.mult = 3
+	g.clean = 60.0
+	await step(5)
+	g.bot_steer = 1.0
+	for i in 300:
+		if g.px >= 0.6:
+			g.bot_steer = 0.0
+		await process_frame
+	var res = {"bumps": g.n_bumps, "multiplier_start": 3, "multiplier_end": g.mult, "px_end": r3(g.px), "entered_lane": absf(g.px - 0.667) < 0.1}
 	await drop()
 	return res
 
@@ -424,6 +449,7 @@ func _run() -> void:
 	out["autopilot"] = await autopilot(90.0)
 	out["nudge_dodge"] = [await nudge_dodge(70.0), await nudge_dodge(95.0)]
 	out["side_merge"] = [await side_merge(70.0, 1500.0), await side_merge(70.0, 2500.0), await side_merge(95.0, 2500.0), await side_merge(95.0, 3500.0)]
+	out["cut_in_front"] = await cut_in_front()
 	out["visibility"] = "medida na imagem renderizada: veja visibility_rendered (qa/shots/visibility.json, gerado por run_qa.sh)"
 	if shots:
 		await make(1, false, true)

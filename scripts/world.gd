@@ -86,6 +86,30 @@ func _sign_far(w: float, sx: float, sy: float, clip: float, alpha: float) -> voi
 		draw_rect(Rect2(x + w * 0.2, y + h * 0.13, w * 0.6, 0.5), Color(0.90, 0.91, 0.93, alpha))
 		draw_rect(Rect2(x + w * 0.28, y + h * 0.28, w * 0.44, 0.5), Color(0.90, 0.91, 0.93, alpha))
 
+var _board_cols := {}
+func _board_far(tx: Texture2D, w: float, sx: float, sy: float, clip: float, alpha: float) -> void:
+	if w < 0.8:
+		return
+	if not _board_cols.has(tx):
+		var img := tx.get_image()
+		_board_cols[tx] = [img.get_pixel(8, 8), img.get_pixel(img.get_width() / 2, int(img.get_height() * 0.3))]
+	var bg: Color = _board_cols[tx][0]
+	var fg: Color = _board_cols[tx][1]
+	if fg.is_equal_approx(bg):
+		fg = Color(1.0, 0.95, 0.69)
+	var h := w * 58.0 / 80.0
+	var x := roundf((sx - w / 2.0) * 2.0) / 2.0
+	var y := roundf((sy - h) * 2.0) / 2.0
+	if y + h * 0.6 > clip:
+		return
+	draw_rect(Rect2(x + w * 0.17, y + h * 0.6, maxf(0.5, w * 0.05), h * 0.4), Color(0.17, 0.10, 0.07, alpha))
+	draw_rect(Rect2(x + w * 0.77, y + h * 0.6, maxf(0.5, w * 0.05), h * 0.4), Color(0.17, 0.10, 0.07, alpha))
+	draw_rect(Rect2(x, y, w, h * 0.62), Color(0.90, 0.91, 0.93, alpha))
+	draw_rect(Rect2(x + 0.5, y + 0.5, w - 1.0, h * 0.62 - 1.0), Color(bg.r, bg.g, bg.b, alpha))
+	if w >= 8.0:
+		draw_rect(Rect2(x + w * 0.18, y + h * 0.2, w * 0.64, 0.5), Color(fg.r, fg.g, fg.b, alpha))
+		draw_rect(Rect2(x + w * 0.26, y + h * 0.38, w * 0.48, 0.5), Color(fg.r, fg.g, fg.b, alpha))
+
 func _draw_player(sx: float, sy: float, s: float) -> void:
 	var hh: float = g.view.hh
 	var k := s * 1000.0 * W / 2.0 / 64.0
@@ -265,8 +289,8 @@ func _draw() -> void:
 				_trap(rim_c.lerp(fog, fa), f1, asy, maxf(asw * fw * 0.8, 1.5), f2, hy2, hw)
 				_trap(hole_c.lerp(fog, fa), f1, asy - (asy - hy2) * 0.25, maxf(asw * fw * 0.9, 1.2), f2, hy2, hw * 0.8)
 				var glint := pud_h.lerp(Color("8ec5ff"), 0.6)   # sky-blue water, not the white of the lane paint
-				draw_rect(Rect2(f2 - hw * 1.2, hy2 - 1.0, hw * 2.4, 1.0), glint.lerp(fog, fa * 0.3))
-				draw_rect(Rect2(f2 - hw * 0.8, hy2, hw * 1.6, 1.0), hole_c.lerp(fog, fa * 0.3))   # dark lip under it: a hole, not a dash
+				draw_rect(Rect2(f2 - hw * 1.2, hy2, hw * 2.4, 1.5), hole_c.lerp(fog, fa * 0.3))         # the hole is the dark part, and the widest
+				draw_rect(Rect2(f2 - hw * 0.9, hy2 - 1.0, hw * 1.8, 1.0), glint.lerp(fog, fa * 0.3))   # water glint on its far lip, narrower than the hole
 
 	# rain in the air
 	var rain: float = g.rain
@@ -297,6 +321,9 @@ func _draw() -> void:
 		for q in sg.spr:
 			if q.kind == 4 and a_s * q.ww * W / 2.0 < 24.0:   # road sign too small for its text: draw a clean blank sign
 				_sign_far(a_s * q.ww * W / 2.0, asx + asw * q.off, asy, clip, alpha)
+				continue
+			if q.kind == 5 and a_s * q.ww * W / 2.0 < 40.0:   # billboard too small for its text: plain panel in its own colours
+				_board_far(q.tex, a_s * q.ww * W / 2.0, asx + asw * q.off, asy, clip, alpha)
 				continue
 			var r := _sprite(q.tex, q.ww, a_s, asx + asw * q.off, asy, clip, alpha)
 			if r.size.x == 0.0:

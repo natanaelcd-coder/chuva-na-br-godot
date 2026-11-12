@@ -246,7 +246,7 @@ func _populate() -> void:
 	for k in 9:
 		_add_spr(120 + k * int(N / 9.0), "sign%d" % [0, 1, 2, 4, 5][k % 5], 1.38, 1700.0, 4)
 	for k in 6:
-		_add_spr(300 + k * int(N / 6.0), "board%d" % (k % BOARD_COUNT), 2.3, 2600.0)
+		_add_spr(300 + k * int(N / 6.0), "board%d" % (k % BOARD_COUNT), 2.3, 2600.0, 5)
 	for f in [0.3, 0.78]:
 		var i := int(N * f)
 		postos.append(i)
@@ -277,7 +277,7 @@ func _build_surface() -> void:
 		segs[i].y2 = Y[(i + 1) % N]
 	var last_hole := -100
 	for i in range(60, N):
-		if i - last_hole >= 12 and randf() < 0.001 + ROUGH[i] * 0.008:
+		if i - last_hole >= 16 and randf() < 0.001 + ROUGH[i] * 0.008:
 			last_hole = i
 			segs[i].feat.append({"t": 0, "x": LANES.pick_random() + randf_range(-0.22, 0.22), "w": randf_range(0.07, 0.12)})
 		if ROUGH[i] > 0.25 and randf() < 0.3:
@@ -622,7 +622,10 @@ func _process(dt: float) -> void:
 			if c.dir > 0 and absf(c.x - px) < 0.46:
 				var dd := fposmod(c.z - pos, TRACK)
 				if dd > 250.0 and dd < 9000.0:   # square-root braking curve: always enough room to slow down
-					tgt = minf(tgt, c.v + signf(dd - 1600.0) * sqrt(absf(dd - 1600.0) * 0.5))
+					if dd < 1600.0:   # already inside the gap: settle just under its speed, don't sink below it
+						tgt = minf(tgt, c.v - (1600.0 - dd) * 0.005)
+					else:
+						tgt = minf(tgt, c.v + sqrt((dd - 1600.0) * 0.5))
 					close = close or (dd < 4000.0 and v > c.v + 15.0)   # someone slow just appeared close: brake firmly
 	var v0 := v
 	v += clampf(tgt - v, (-70.0 if close else -34.0) * dt, 13.0 * dt)
@@ -676,7 +679,7 @@ func _process(dt: float) -> void:
 		if lane != press_lane:   # just changed lane (or never steered): settle into the lane centre
 			px += (LANES[lane] - px) * minf(1.0, 2.5 * dt)
 		elif free_t > 0.5:       # hands off after a nudge: hold that line, even through the bend
-			px += (hold_x - px) * minf(1.0, 2.5 * dt) + curve * sp * sp * dt * 0.16 * 0.6   # the bend still leans you out a little
+			px += (hold_x - px) * minf(1.0, 2.5 * dt) + curve * sp * sp * dt * 0.16 * 0.3   # the bend still leans you out a little
 		else:                    # small correction in the same lane: only a weak pull, fine control stays
 			vx += (LANES[lane] - px) * 1.5 * dt
 	px += vx * dt - (0.0 if is_auto else curve * sp * sp * dt * 0.16)
@@ -770,15 +773,25 @@ func _process(dt: float) -> void:
 			var dxl := absf(c.x - px)
 			if d > TRACK - 1400.0 and dxl < 0.5:
 				cv = minf(cv, v)
-			var swipe := (d <= 250.0 or d > TRACK - 500.0) and dxl < 0.46   # alongside: no driving through cars
+			# we cut in front of a faster car close behind: it brakes for about a second and honks, we keep our lane
+			if d > TRACK - 1200.0 and dxl < 0.46 and c.v > v and c.get("honk_t", 0.0) <= 0.0:
+				c.hold_t = 1.2
+				c.honk_t = 5.0
+				_sfx("horn")
+			c.honk_t = maxf(0.0, c.get("honk_t", 0.0) - dt)
+			if c.get("hold_t", 0.0) > 0.0:
+				c.hold_t -= dt
+				cv = minf(cv, maxf(0.0, v - 20.0))
+			var behind_overlap := d > TRACK - 500.0 and dxl < 0.46
+			var swipe := d <= 250.0 and dxl < 0.46   # alongside a car ahead: no driving through it
 			if swipe:
 				var sgn := 1.0 if px >= c.x else -1.0
 				px = c.x + sgn * 0.46
 				vx = sgn * 0.45
 				kick = sgn * 0.5
-			if (d < 1250.0 and d > 250.0 and dxl < 0.46 and v > c.v) or swipe:
+			if (d < 1250.0 and d > 250.0 and dxl < 0.46 and v > c.v) or swipe or behind_overlap:
 				sfx["bump"].volume_db = linear_to_db(0.4 + 0.6 * clampf((v - c.v) / 40.0, 0.0, 1.0))
-				if not swipe:
+				if not swipe and not behind_overlap:
 					v = lerpf(v, maxf(0.0, cv - 6.0), minf(1.0, dt * 10.0))   # a firm shove over ~0.2 s, not a wall
 				if bump_t <= 0.0 and started:   # a nudge costs one step of the multiplier, not all of it
 					bump_t = 2.0

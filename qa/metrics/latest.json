@@ -1,8 +1,8 @@
 {
   "autopilot": {
     "car_bumps": 0,
-    "holes_hit": 1,
-    "puddles_hit": 3,
+    "holes_hit": 0,
+    "puddles_hit": 2,
     "seconds": 90.0
   },
   "curve_follow": [
@@ -27,35 +27,42 @@
       "speed_kmh": 95.0
     }
   ],
+  "cut_in_front": {
+    "bumps": 1,
+    "entered_lane": true,
+    "multiplier_end": 2,
+    "multiplier_start": 3,
+    "px_end": 0.667
+  },
   "full_drive": [
     {
       "car_bumps": 1,
-      "hazards_passed": 23,
-      "hazards_per_min": 11.5,
-      "holes_hit": 1,
-      "lane_changes": 10,
+      "hazards_passed": 22,
+      "hazards_per_min": 11.0,
+      "holes_hit": 2,
+      "lane_changes": 13,
       "lookahead_s": 1.6,
       "offroad_s": 0.0,
       "puddles_hit": 0,
-      "score": 43638,
+      "score": 40053,
       "seconds": 120.0,
       "speed_kmh": 70.0
     },
     {
       "car_bumps": 1,
-      "hazards_passed": 32,
-      "hazards_per_min": 16.0,
-      "holes_hit": 1,
+      "hazards_passed": 28,
+      "hazards_per_min": 14.0,
+      "holes_hit": 0,
       "lane_changes": 19,
       "lookahead_s": 1.6,
       "offroad_s": 0.0,
-      "puddles_hit": 3,
-      "score": 38114,
+      "puddles_hit": 2,
+      "score": 53803,
       "seconds": 120.0,
       "speed_kmh": 90.0
     }
   ],
-  "generated_at": "2026-11-12T20:33:51",
+  "generated_at": "2026-11-12T20:59:09",
   "lane_change": [
     {
       "overshoot_road": 0.042,
@@ -225,7 +232,11 @@
     {
       "bumps": 1,
       "max_drop_per_frame_kmh": 0.0,
-      "min_distance_while_overlapping": 637.5,
+      "max_lateral_jump_per_frame_road": 0.019,
+      "min_distance_in_lane_or_touching": 75.0,
+      "multiplier_end": 2,
+      "multiplier_start": 3,
+      "px_end": 0.667,
       "speed_kmh": 70.0,
       "start_distance": 1500.0,
       "v_min_kmh": 70.0
@@ -233,15 +244,23 @@
     {
       "bumps": 1,
       "max_drop_per_frame_kmh": 6.0,
-      "min_distance_while_overlapping": 962.217,
+      "max_lateral_jump_per_frame_road": 0.017,
+      "min_distance_in_lane_or_touching": 962.217,
+      "multiplier_end": 2,
+      "multiplier_start": 3,
+      "px_end": 0.667,
       "speed_kmh": 70.0,
       "start_distance": 2500.0,
-      "v_min_kmh": 26.361
+      "v_min_kmh": 36.88
     },
     {
       "bumps": 1,
       "max_drop_per_frame_kmh": 0.0,
-      "min_distance_while_overlapping": 635.0,
+      "max_lateral_jump_per_frame_road": 0.018,
+      "min_distance_in_lane_or_touching": 112.5,
+      "multiplier_end": 2,
+      "multiplier_start": 3,
+      "px_end": 0.667,
       "speed_kmh": 95.0,
       "start_distance": 2500.0,
       "v_min_kmh": 95.0
@@ -249,10 +268,14 @@
     {
       "bumps": 1,
       "max_drop_per_frame_kmh": 10.167,
-      "min_distance_while_overlapping": 630.49,
+      "max_lateral_jump_per_frame_road": 0.017,
+      "min_distance_in_lane_or_touching": 630.49,
+      "multiplier_end": 2,
+      "multiplier_start": 3,
+      "px_end": 0.667,
       "speed_kmh": 95.0,
       "start_distance": 3500.0,
-      "v_min_kmh": 23.179
+      "v_min_kmh": 35.289
     }
   ],
   "tap": [
@@ -272,7 +295,7 @@
     }
   ],
   "visibility": "medida na imagem renderizada: veja visibility_rendered (qa/shots/visibility.json, gerado por run_qa.sh)",
-  "wall_time_s": 72.394,
+  "wall_time_s": 70.328,
   "visibility_rendered": {
     "cams": {
       "chase": {
@@ -285,67 +308,67 @@
           ],
           [
             4000,
-            103
+            91
           ],
           [
             5000,
-            90
+            79
           ],
           [
             6000,
-            78
+            63
           ],
           [
             8000,
-            70
+            64
           ],
           [
             10000,
-            71
+            72
           ],
           [
             12000,
-            62
+            65
           ],
           [
             13500,
-            59
+            60
           ],
           [
             15000,
-            52
+            54
           ],
           [
             16500,
-            49
+            50
           ],
           [
             18000,
-            45
+            47
           ],
           [
             19500,
-            40
+            45
           ],
           [
             21000,
-            40
+            37
           ],
           [
             22500,
-            36
+            37
           ],
           [
             24000,
-            33
-          ],
-          [
-            25500,
             34
           ],
           [
+            25500,
+            35
+          ],
+          [
             27000,
-            33
+            34
           ]
         ],
         "readable_until_units": 27000.0,
@@ -353,81 +376,81 @@
         "margin_95kmh_s": 2.16
       },
       "cockpit_dry_no_dash": {
-        "lead_time_70kmh_s": 4.06,
-        "lead_time_95kmh_s": 2.99,
+        "lead_time_70kmh_s": 3.83,
+        "lead_time_95kmh_s": 2.83,
         "pixels_changed_by_distance": [
           [
             3000,
-            252
+            242
           ],
           [
             4000,
-            153
+            137
           ],
           [
             5000,
-            112
+            96
           ],
           [
             6000,
-            101
+            89
           ],
           [
             8000,
-            99
+            101
           ],
           [
             10000,
-            81
+            83
           ],
           [
             12000,
-            72
+            70
           ],
           [
             13500,
-            64
+            68
           ],
           [
             15000,
-            59
+            63
           ],
           [
             16500,
-            54
+            57
           ],
           [
             18000,
-            48
+            50
           ],
           [
             19500,
-            45
+            49
           ],
           [
             21000,
-            37
+            36
           ],
           [
             22500,
-            31
-          ],
-          [
-            24000,
             32
           ],
           [
+            24000,
+            31
+          ],
+          [
             25500,
-            29
+            30
           ],
           [
             27000,
-            30
+            29
           ]
         ],
-        "readable_until_units": 27000.0,
-        "margin_70kmh_s": 3.23,
-        "margin_95kmh_s": 2.16
+        "readable_until_units": 25500.0,
+        "margin_70kmh_s": 3.0,
+        "margin_95kmh_s": 2.0
       },
       "cockpit_rain_with_dash": {
         "lead_time_70kmh_s": 3.61,
@@ -435,55 +458,55 @@
         "pixels_changed_by_distance": [
           [
             3000,
-            252
+            242
           ],
           [
             4000,
-            153
+            137
           ],
           [
             5000,
-            112
+            96
           ],
           [
             6000,
-            101
+            89
           ],
           [
             8000,
-            99
+            101
           ],
           [
             10000,
-            80
+            83
           ],
           [
             12000,
-            72
+            70
           ],
           [
             13500,
-            64
+            68
           ],
           [
             15000,
-            59
+            63
           ],
           [
             16500,
-            54
+            57
           ],
           [
             18000,
-            48
+            50
           ],
           [
             19500,
-            45
+            49
           ],
           [
             21000,
-            37
+            36
           ],
           [
             22500,
@@ -495,11 +518,11 @@
           ],
           [
             25500,
-            26
+            27
           ],
           [
             27000,
-            27
+            26
           ]
         ],
         "readable_until_units": 24000.0,
