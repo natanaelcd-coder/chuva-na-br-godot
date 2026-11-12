@@ -139,11 +139,11 @@ func tap(v: float) -> Dictionary:
 	g.bot_steer = 1.0
 	await step(9)
 	g.bot_steer = 0.0
-	var peak_vx := 0.0
+	var peak_px := 0.0
 	for i in 150:
 		await process_frame
-		peak_vx = maxf(peak_vx, g.vx)
-	var res = {"speed_kmh": v, "tap_s": 0.15, "lateral_move_road": r3(g.px), "lane_width_road": 0.667}
+		peak_px = maxf(peak_px, absf(g.px))
+	var res = {"speed_kmh": v, "tap_s": 0.15, "lateral_move_peak_road": r3(peak_px), "lateral_move_after_2_5s_road": r3(g.px), "lane_width_road": 0.667}
 	await drop()
 	return res
 
@@ -210,8 +210,12 @@ func pothole_response(v: float) -> Dictionary:
 	var pitch_peak := 0.0
 	var samples: Array = []
 	var px0: float = g.px
+	var kick_peak := 0.0
+	var v_min: float = g.v
 	for i in 360:
 		await process_frame
+		kick_peak = maxf(kick_peak, absf(g.px - px0))
+		v_min = minf(v_min, g.v)
 		var rel: float = g.zb - g.zr
 		samples.append(rel)
 		peak = maxf(peak, absf(rel))
@@ -234,7 +238,7 @@ func pothole_response(v: float) -> Dictionary:
 			last_sign = signf(x)
 	var res = {"speed_kmh": v, "body_peak_units": r3(peak), "body_peak_screen_px": r3(peak * g.view.hh * 0.84 / 900.0 * 2.0),
 		"settle_s": r3(settle), "oscillations": crossings / 2.0, "roll_peak_rad": r3(roll_peak), "pitch_peak_rad": r3(pitch_peak),
-		"lateral_kick_road": r3(absf(g.px - px0)), "speed_lost_kmh": r3(v - g.v)}
+		"pitch_peak_screen_px": r3(pitch_peak * 190.0 * 2.0), "lateral_kick_peak_road": r3(kick_peak), "speed_lost_peak_kmh": r3(v - v_min)}
 	await drop()
 	return res
 
@@ -271,6 +275,8 @@ func full_drive(v: float, seconds: float, look_s: float) -> Dictionary:
 	var off_t := 0.0
 	var feats := 0
 	var counted := {}
+	var laps := 0
+	var last_si := -1
 	var lane_changes := 0
 	for i in int(seconds / DT):
 		var lookahead = int(g.v * g.UPK * look_s / g.SEG) + 1
@@ -306,8 +312,12 @@ func full_drive(v: float, seconds: float, look_s: float) -> Dictionary:
 		if absf(g.px) > 1.02:
 			off_t += DT
 		var si = int(g.pos / g.SEG)
-		if not counted.has(si):
-			counted[si] = true
+		if si < last_si:
+			laps += 1
+		last_si = si
+		var key = si + laps * g.N
+		if not counted.has(key):
+			counted[key] = true
 			for f in g.segs[si % g.N].feat:
 				if f.t == 0 or (f.t == 2 and f.a == 1.0):
 					feats += 1
@@ -356,10 +366,10 @@ func _run() -> void:
 	out["tap"] = [await tap(50.0), await tap(90.0)]
 	out["curve_follow"] = [await curve_follow(70.0, 0.15), await curve_follow(95.0, 0.15)]
 	out["pothole"] = [await pothole_response(40.0), await pothole_response(70.0), await pothole_response(95.0)]
-	out["ride"] = await ride(70.0, 40.0)
+	out["ride"] = [await ride(50.0, 40.0), await ride(70.0, 40.0), await ride(95.0, 40.0)]
 	out["full_drive"] = [await full_drive(70.0, 120.0, 1.6), await full_drive(90.0, 120.0, 1.6)]
 	out["autopilot"] = await autopilot(90.0)
-	out["visibility"] = [await visibility(70.0, out.lane_change[1].time_to_target_s), await visibility(95.0, out.lane_change[2].time_to_target_s)]
+	out["visibility"] = "medida na imagem renderizada: veja visibility_rendered (qa/shots/visibility.json, gerado por run_qa.sh)"
 	if shots:
 		await make(1, false, true)
 		place(60, 0.667, 70.0)
@@ -387,6 +397,8 @@ func _run() -> void:
 func _shots_only() -> void:
 	await make(1, false, true)
 	place(60, 0.667, 70.0)
+	g.cars = g.cars.filter(func(c): return c.dir < 0 or fposmod(c.z - g.pos, g.TRACK) > 6000.0)   # nobody parked on our bumper at the start
+	g.set_auto(true)
 	await step(150)
 	await shot("cockpit_drive")
 	var fps_t := Time.get_ticks_msec()
@@ -411,4 +423,53 @@ func _shots_only() -> void:
 	await drop()
 	var f := FileAccess.open(ProjectSettings.globalize_path("res://qa/shots/fps.txt"), FileAccess.WRITE)
 	f.store_string("render fps (software renderer): %.1f\n" % fps)
+	f.close()
+	await _visibility_rendered()
+
+# How far away is a pothole readable? Render the road with and without one hole and count changed pixels.
+func _diff(a: Image, b: Image) -> int:
+	var n := 0
+	for y in range(0, a.get_height()):
+		for x in range(0, a.get_width()):
+			if a.get_pixel(x, y) != b.get_pixel(x, y):
+				n += 1
+	return n
+
+func _visibility_rendered() -> void:
+	var res := {"threshold_px": 30, "hole_w": 0.09, "cams": {}}
+	for cam in [0, 1]:
+		await make(1, true)
+		g.Y.fill(0.0)
+		for s in g.segs:
+			s.y1 = 0.0
+			s.y2 = 0.0
+		var i0 := longest_straight()
+		place(i0, 0.0, 0.0)
+		g.target = 0.0
+		g.rain = 0.0
+		g.rain_goal = 0.0
+		g.drops.clear()
+		g.set_cam(cam)
+		g.get_node("Cockpit").visible = false   # judge the road itself, not the cabin in front of it
+		await step(20)
+		var rows := []
+		var readable := 0.0
+		for z in [3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 18000, 21000, 25000]:
+			await step(2)
+			var ref := root.get_texture().get_image()
+			var cam_seg := int((g.pos - g.view.back) / g.SEG)
+			var si := cam_seg + int((z + g.view.back) / g.SEG)
+			g.segs[si % g.N].feat.append({"t": 0, "x": 0.667, "w": 0.09})
+			await step(2)
+			var img := root.get_texture().get_image()
+			g.segs[si % g.N].feat.clear()
+			var d := _diff(ref, img)
+			rows.append([z, d])
+			if d >= 30:
+				readable = z
+		res.cams["cockpit" if cam == 0 else "chase"] = {"pixels_changed_by_distance": rows, "readable_until_units": readable,
+			"lead_time_70kmh_s": snappedf(readable / (70.0 * g.UPK), 0.01), "lead_time_95kmh_s": snappedf(readable / (95.0 * g.UPK), 0.01)}
+		await drop()
+	var f := FileAccess.open(ProjectSettings.globalize_path("res://qa/shots/visibility.json"), FileAccess.WRITE)
+	f.store_string(JSON.stringify(res, "  "))
 	f.close()

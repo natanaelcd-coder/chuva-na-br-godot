@@ -128,6 +128,8 @@ var e_amb := 0.7
 
 # input
 var touch_steer := 0.0
+var press_lane := -1
+var prev_input := 0.0
 # test hooks (tests/test_drive.gd): simulated keys and event counters
 var bot_steer := 0.0
 var bot_speed := 0.0
@@ -144,6 +146,8 @@ var sound_on := true
 var a_music: AudioStreamPlayer
 var a_rain: AudioStreamPlayer
 var a_engine: AudioStreamPlayer
+var a_rumble: AudioStreamPlayer
+var a_hiss: AudioStreamPlayer
 var sfx := {}
 var music_streams: Array = []
 
@@ -173,6 +177,9 @@ func _ready() -> void:
 	_build_track()
 	_populate()
 	_build_surface()
+	for i in range(1, N):   # warn before every rough stretch
+		if ROUGH[i] > 0.25 and ROUGH[i - 1] <= 0.25:
+			_add_spr(i - 40, "sign3", 1.38, 1700.0)
 	_spawn_cars()
 	_init_weather()
 	_init_audio()
@@ -357,8 +364,38 @@ func _init_audio() -> void:
 	e.loop_end = int(e.get_length() * e.mix_rate)
 	a_engine = _player(e)
 	a_engine.volume_db = -80.0
+	a_rumble = _player(_noise_loop(true))
+	a_rumble.volume_db = -80.0
+	a_hiss = _player(_noise_loop(false))
+	a_hiss.volume_db = -80.0
 	for n in ["hole", "bump", "splash", "static", "wiper", "horn"]:
 		sfx[n] = _player(load("res://assets/audio/%s.wav" % n))
+
+# 1 s noise loops made at start-up: low rumble for rough asphalt and the shoulder, hiss for wet tyres
+func _noise_loop(low: bool) -> AudioStreamWAV:
+	var rate := 22050
+	var data := PackedByteArray()
+	data.resize(rate * 2)
+	var y := 0.0
+	var prev := 0.0
+	for i in rate:
+		var w := randf() * 2.0 - 1.0
+		var x: float
+		if low:
+			y += (w - y) * 0.04   # one-pole low-pass: gravelly rumble
+			x = y * 3.0
+		else:
+			x = (w - prev) * 0.5    # first difference: hiss
+			prev = w
+		var fade := minf(1.0, minf(i, rate - i) / 400.0)
+		data.encode_s16(i * 2, int(clampf(x * fade, -1.0, 1.0) * 30000.0))
+	var st := AudioStreamWAV.new()
+	st.format = AudioStreamWAV.FORMAT_16_BITS
+	st.mix_rate = rate
+	st.data = data
+	st.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	st.loop_end = rate
+	return st
 
 func _sfx(n: String) -> void:
 	if started:
@@ -404,6 +441,8 @@ func begin() -> void:
 	set_auto(false)
 	a_rain.play()
 	a_engine.play()
+	a_rumble.play()
+	a_hiss.play()
 	_tune()
 	hud.toast("BOA VIAGEM", 3.0)
 
@@ -455,6 +494,8 @@ func _notification(what: int) -> void:
 		_save_hi()
 
 func _save_hi() -> void:
+	if Engine.has_meta("test_seed"):
+		return
 	if score > hi:
 		var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 		if f:
@@ -469,6 +510,7 @@ func _splash() -> void:
 	if cam == 1 and has_car_scr:
 		for i in 40:
 			parts.append([car_scr.x + randf_range(-30, 30) * car_scr.z, car_scr.y - randf_range(0, 6), randf_range(-80, 80), randf_range(-130, -30), randf_range(0.3, 0.8)])
+	sfx["splash"].volume_db = linear_to_db(0.4 + 0.6 * clampf(v / 100.0, 0.0, 1.0))
 	_sfx("splash")
 
 func _hit_feat(f: Dictionary, sp: float) -> void:
@@ -480,9 +522,9 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 			return
 		var side := 0.0 if (l and r) else (-1.0 if l else 1.0)
 		var k := 0.5 + sp
-		zb_v += 360.0 * k
+		zb_v += 500.0 * k
 		roll_v += side * 0.36 * k
-		pitch_v += 0.3 * k
+		pitch_v += 0.7 * k
 		vx += side * 0.1
 		kick = side * 0.4 if side != 0.0 else randf_range(-0.25, 0.25)
 		v = maxf(0.0, v - 3.0)
@@ -570,6 +612,12 @@ func _process(dt: float) -> void:
 	var off := absf(px) > 1.02
 	if off:
 		tgt = minf(tgt, 30.0)
+	if started and not auto:   # cruise control yields to the car ahead instead of ramming it
+		for c in cars:
+			if c.dir > 0 and absf(c.x - px) < 0.46:
+				var dd := fposmod(c.z - pos, TRACK)
+				if dd > 250.0 and dd < 3000.0:
+					tgt = minf(tgt, c.v + (dd - 1600.0) * 0.01)
 	var v0 := v
 	v += clampf(tgt - v, -34.0 * dt, 13.0 * dt)
 	brake = tgt < v - 1.5
@@ -605,6 +653,9 @@ func _process(dt: float) -> void:
 		dir = clampf((LANES[lane] - px) * 2.4 - vx * 1.6, -0.4, 0.4)
 	else:
 		lane = 0 if px < -0.33 else (2 if px > 0.33 else 1)
+		if dir != 0.0 and prev_input == 0.0:
+			press_lane = lane
+	prev_input = dir if not is_auto else 0.0
 	var rate := 5.0 if absf(dir) > absf(steer) else 12.0   # quick to centre, a little slower to turn in
 	steer += clampf(dir - steer, -dt * rate, dt * rate)
 	aqua = maxf(0.0, aqua - dt)
@@ -612,8 +663,11 @@ func _process(dt: float) -> void:
 	var grip := (1.0 - 0.3 * rain * sp) * (0.3 if aqua > 0.0 else 1.0)
 	var vx0 := vx
 	vx += (steer * 1.0 * minf(1.0, sp * 2.5) - vx) * minf(1.0, dt * 9.0 * grip)
-	if dir == 0.0 and not is_auto and aqua <= 0.0:   # weak lane magnet when hands are off the keys
-		vx += (LANES[lane] - px) * 1.5 * dt
+	if dir == 0.0 and not is_auto and aqua <= 0.0 and absf(px) < 1.02:
+		if lane != press_lane:   # just changed lane: settle into the new one
+			px += (LANES[lane] - px) * minf(1.0, 2.5 * dt)
+		else:                    # small correction in the same lane: only a weak pull, fine control stays
+			vx += (LANES[lane] - px) * 1.5 * dt
 	px += vx * dt - (0.0 if is_auto else curve * sp * sp * dt * 0.16)
 	if px < -1.06:
 		px = -1.06
@@ -663,7 +717,7 @@ func _process(dt: float) -> void:
 		cy = zr
 	var sl := (road_y(pos + 700.0) - road_y(pos - 700.0)) / 1400.0
 	slope += (sl - slope) * minf(1.0, dt * 1.6)
-	var pt := clampf(sl - slope, -0.045, 0.045) - clampf((v - v0) / maxf(dt, 0.001), -40.0, 20.0) * 0.0011
+	var pt := clampf(sl - slope, -0.035, 0.035) - clampf((v - v0) / maxf(dt, 0.001), -40.0, 20.0) * 0.0011
 	pitch_v += (-58.0 * (pitch - pt) - 6.0 * pitch_v) * dt
 	pitch = clampf(pitch + pitch_v * dt, -0.12, 0.12)
 	var rt := -clampf(al * 0.013 + curve * sp * sp * 0.024, -0.1, 0.1)
@@ -790,6 +844,11 @@ func _process(dt: float) -> void:
 		a_rain.volume_db = linear_to_db(maxf(rain * 0.09, 0.0001))
 		a_engine.volume_db = linear_to_db(0.05 + sp * 0.03)
 		a_engine.pitch_scale = (38.0 + v * 0.75) / 60.0
+		a_rumble.volume_db = linear_to_db(maxf(0.0001, (rough - 0.6) * 0.08 * sp + (0.1 if off else 0.0)))
+		a_rumble.pitch_scale = 0.8 + 0.4 * sp
+		a_hiss.volume_db = linear_to_db(maxf(0.0001, clampf(absf(curve * sp * sp) * 0.04 + aqua * 0.12 + rain * sp * 0.015, 0.0, 0.15)))
+		if off:
+			kick += randf_range(-0.05, 0.05)
 		static_t = maxf(0.0, static_t - dt)
 		if radio_st < STATIONS.size():
 			radio_time += dt

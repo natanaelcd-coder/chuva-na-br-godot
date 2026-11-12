@@ -156,6 +156,7 @@ func _draw() -> void:
 	var rail_c := Color8(70, 76, 88).lerp(Color8(168, 172, 181), amb)
 	var rail_h := Color8(110, 116, 128).lerp(Color8(220, 224, 232), amb)
 	var edge_c := Color("c47a1c")
+	var feat_list: Array = []
 	for n in DRAW:
 		var sg = segs[(bi + n) % n_seg]
 		var cz := cpos - (track if sg.i < bi else 0.0)
@@ -189,19 +190,8 @@ func _draw() -> void:
 		_quad(rc, Vector2(asx - asw * 3.4, asy), Vector2(bsx - bsw * 3.4, bsy), Vector2(bsx - bsw * 1.5, bsy), Vector2(asx - asw * 1.5, asy))   # the other carriageway
 		_trap(rc.lerp(grass, 0.35), asx, asy, asw * 1.16, bsx, bsy, bsw * 1.16)
 		_trap(rc, asx, asy, asw, bsx, bsy, bsw)
-		for f in sg.feat:
-			var f1: float = asx + asw * f.x
-			var f2: float = bsx + bsw * f.x
-			var fw: float = f.w
-			if f.t == 1:
-				_trap(patch_c, f1, asy, asw * fw, f2, bsy, bsw * fw)
-			elif f.t == 2:
-				_trap(pud_c, f1, asy, asw * fw * f.a, f2, bsy, bsw * fw * f.b)
-				if hgt > 2.0:
-					_trap(pud_h, f1 - asw * fw * 0.3, asy - hgt * 0.4, asw * fw * f.a * 0.35, f2 - bsw * fw * 0.3, asy - hgt * 0.6, bsw * fw * f.b * 0.35)
-			else:
-				_trap(rim_c, f1, asy, asw * fw * 0.8, f2, bsy, bsw * fw)
-				_trap(hole_c, f1, asy - hgt * 0.25, asw * fw * 0.9, f2, bsy, bsw * fw * 0.8)
+		if not sg.feat.is_empty():
+			feat_list.append([sg, hgt, n])   # drawn after the road, back to front, so nearer rows can't erase them
 		var lw1 := maxf(asw / 55.0, 0.3)
 		var lw2 := maxf(bsw / 55.0, 0.3)
 		_trap(edge_c, asx - asw * 0.95, asy, lw1, bsx - bsw * 0.95, bsy, lw2)
@@ -222,6 +212,36 @@ func _draw() -> void:
 		if fa > 0.02:
 			draw_rect(Rect2(X0, bsy, XW, hgt), Color(fog.r, fog.g, fog.b, fa))
 		maxy = bsy
+
+	# potholes, patches and puddles: at least 1 logical unit tall so they read from far away
+	for idx in range(feat_list.size() - 1, -1, -1):
+		var e: Array = feat_list[idx]
+		var sg = e[0]
+		var hgt: float = e[1]
+		var fa := pow(float(e[2]) / DRAW, 1.6) * 0.92 * 0.35
+		var asx: float = sg.a_sx
+		var asy: float = sg.a_sy
+		var asw: float = sg.a_sw
+		var bsx: float = sg.b_sx
+		var bsw: float = sg.b_sw
+		var ty := minf(sg.b_sy, asy - 1.0)
+		var th := asy - ty
+		var hy2 := minf(sg.b_sy, asy - 2.0)   # potholes get 2 logical units minimum, so they read as a dark dash far ahead
+		for f in sg.feat:
+			var f1: float = asx + asw * f.x
+			var f2: float = bsx + bsw * f.x
+			var fw: float = f.w * 1.3
+			if f.t == 1:
+				_trap(patch_c.lerp(fog, fa), f1, asy, asw * fw, f2, ty, bsw * fw)
+			elif f.t == 2:
+				_trap(pud_c.lerp(fog, fa), f1, asy, asw * fw * f.a, f2, ty, bsw * fw * f.b)
+				if th > 2.0:
+					_trap(pud_h.lerp(fog, fa), f1 - asw * fw * 0.3, asy - th * 0.4, asw * fw * f.a * 0.35, f2 - bsw * fw * 0.3, asy - th * 0.6, bsw * fw * f.b * 0.35)
+			else:
+				var hw := maxf(bsw * fw, 1.5)
+				_trap(rim_c.lerp(fog, fa), f1, asy, maxf(asw * fw * 0.8, 1.5), f2, hy2, hw)
+				_trap(hole_c.lerp(fog, fa), f1, asy - (asy - hy2) * 0.25, maxf(asw * fw * 0.9, 1.2), f2, hy2, hw * 0.8)
+				draw_rect(Rect2(f2 - hw * 0.8, hy2, hw * 1.6, 0.5), pud_h.lerp(fog, fa))   # wet glint on the far edge
 
 	# rain in the air
 	var rain: float = g.rain
