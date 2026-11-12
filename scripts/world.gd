@@ -81,11 +81,11 @@ func _draw_player(sx: float, sy: float, s: float) -> void:
 	draw_circle(Vector2.ZERO, 1.0, Color(0, 0, 0, 0.5))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	for wx in [-28.0, 19.0]:   # wheels stay on the road; the body rides above them
-		draw_rect(Rect2(sx + wx * k, sy - 12.0 * k, 9.0 * k, 12.0 * k), Color("05070c"))
+		draw_rect(Rect2(sx + wx * k, sy - 9.0 * k, 9.0 * k, 9.0 * k), Color("05070c"))   # top tucked behind the bumper
 		for tx in [1.5, 4.5, 7.0]:
-			draw_rect(Rect2(sx + (wx + tx) * k, sy - 10.0 * k, 0.5, 8.0 * k), Color("2a2c33"))
-	_reflect(sx - 23.0 * k, sy, 8.0 * k, 10.0 * k, Color(0.78, 0.12, 0.14, 0.4 if g.brake else 0.22))
-	_reflect(sx + 23.0 * k, sy, 8.0 * k, 10.0 * k, Color(0.78, 0.12, 0.14, 0.4 if g.brake else 0.22))
+			draw_rect(Rect2(sx + (wx + tx) * k, sy - 7.0 * k, 0.5, 5.0 * k), Color("2a2c33"))
+	_reflect(sx - 23.0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.18))
+	_reflect(sx + 23.0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.18))
 	draw_set_transform(Vector2(sx + g.vx * 2.5 * k, sy - 6.0 * k - e + g.pitch * 42.0 * k), g.roll * 1.9, Vector2.ONE)
 	draw_texture_rect(g.tex["player"], Rect2(-32.0 * k, -44.0 * k, 64.0 * k, 46.0 * k), false)
 	if g.brake:
@@ -247,8 +247,9 @@ func _draw() -> void:
 				var hw := maxf(bsw * fw, 1.5)
 				_trap(rim_c.lerp(fog, fa), f1, asy, maxf(asw * fw * 0.8, 1.5), f2, hy2, hw)
 				_trap(hole_c.lerp(fog, fa), f1, asy - (asy - hy2) * 0.25, maxf(asw * fw * 0.9, 1.2), f2, hy2, hw * 0.8)
-				draw_rect(Rect2(f2 - hw * 0.8, hy2, hw * 1.6, 0.5), pud_h.lerp(fog, fa))   # wet glint on the far edge
-				draw_rect(Rect2(f2 - hw * 1.2, hy2 - 0.5, hw * 2.4, 1.0), pud_h.lerp(fog, fa * 0.5))   # water in the hole catches the light from far away
+				var glint := pud_h.lerp(Color("c8d4e8"), 0.5)   # a floor on brightness so it reads at night too
+				draw_rect(Rect2(f2 - hw * 0.8, hy2, hw * 1.6, 0.5), glint.lerp(fog, fa))   # wet glint on the far edge
+				draw_rect(Rect2(f2 - hw * 1.2, hy2 - 1.0, hw * 2.4, 1.5), glint.lerp(fog, fa * 0.3))   # water in the hole catches the light from far away
 
 	# rain in the air
 	var rain: float = g.rain

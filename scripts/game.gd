@@ -130,6 +130,7 @@ var e_amb := 0.7
 var touch_steer := 0.0
 var press_lane := -1
 var free_t := 0.0
+var hold_x := 0.0
 var prev_input := 0.0
 # test hooks (tests/test_drive.gd): simulated keys and event counters
 var bot_steer := 0.0
@@ -180,7 +181,7 @@ func _ready() -> void:
 	_build_surface()
 	for i in range(1, N):   # warn before every rough stretch
 		if ROUGH[i] > 0.25 and ROUGH[i - 1] <= 0.25:
-			_add_spr(i - 40, "sign3", 1.38, 1700.0)
+			_add_spr(i - 70, "sign3", 1.38, 1700.0)
 	_spawn_cars()
 	_init_weather()
 	_init_audio()
@@ -507,7 +508,7 @@ func _save_hi() -> void:
 
 func _splash() -> void:
 	for i in 60:
-		drops.append([randf_range(34, 350), randf_range(15, 119), 2.0 if randf() < 0.5 else 1.0])
+		drops.append([randf_range(34, 350), randf_range(40, 119), 2.0 if randf() < 0.5 else 1.0])
 	if cam == 1 and has_car_scr:
 		for i in 40:
 			var side := -1.0 if i % 2 else 1.0   # two fans of spray, one off each side
@@ -526,7 +527,7 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 		var k := 0.5 + sp
 		zb_v += 500.0 * k
 		roll_v += side * 0.36 * k
-		pitch_v += 0.7 * k
+		pitch_v += 0.7 * minf(k, 1.35)
 		vx += side * 0.25 * k / 1.45   # the wheel is yanked toward the hole
 		aqua = maxf(aqua, 0.2)         # a moment with loose grip and no lane magnet
 		kick = side * 0.4 if side != 0.0 else randf_range(-0.25, 0.25)
@@ -615,14 +616,16 @@ func _process(dt: float) -> void:
 	var off := absf(px) > 1.02
 	if off:
 		tgt = minf(tgt, 30.0)
+	var close := false
 	if started and not auto:   # cruise control yields to the car ahead instead of ramming it
 		for c in cars:
 			if c.dir > 0 and absf(c.x - px) < 0.46:
 				var dd := fposmod(c.z - pos, TRACK)
 				if dd > 250.0 and dd < 9000.0:   # square-root braking curve: always enough room to slow down
 					tgt = minf(tgt, c.v + signf(dd - 1600.0) * sqrt(absf(dd - 1600.0) * 0.5))
+					close = close or (dd < 4000.0 and v > c.v + 15.0)   # someone slow just appeared close: brake firmly
 	var v0 := v
-	v += clampf(tgt - v, -34.0 * dt, 13.0 * dt)
+	v += clampf(tgt - v, (-70.0 if close else -34.0) * dt, 13.0 * dt)
 	brake = tgt < v - 1.5
 	var sp := v / 100.0
 	var base = segs[int(pos / SEG) % N]
@@ -659,8 +662,8 @@ func _process(dt: float) -> void:
 		if dir != 0.0 and prev_input == 0.0:
 			press_lane = lane
 		free_t = 0.0 if dir != 0.0 else free_t + dt
-		if free_t > 0.5:   # hands off for a while: hold the lane centre again
-			press_lane = -1
+		if free_t > 0.5 and free_t - dt <= 0.5 and lane == press_lane:   # the nudge is over: keep the line the player chose
+			hold_x = clampf(px, LANES[lane] - 0.2, LANES[lane] + 0.2)
 	prev_input = dir if not is_auto else 0.0
 	var rate := 5.0 if absf(dir) > absf(steer) else 12.0   # quick to centre, a little slower to turn in
 	steer += clampf(dir - steer, -dt * rate, dt * rate)
@@ -670,8 +673,10 @@ func _process(dt: float) -> void:
 	var vx0 := vx
 	vx += (steer * 1.0 * minf(1.0, sp * 2.5) - vx) * minf(1.0, dt * 9.0 * grip)
 	if dir == 0.0 and not is_auto and aqua <= 0.0 and absf(px) < 1.02:
-		if lane != press_lane:   # just changed lane: settle into the new one
+		if lane != press_lane:   # just changed lane (or never steered): settle into the lane centre
 			px += (LANES[lane] - px) * minf(1.0, 2.5 * dt)
+		elif free_t > 0.5:       # hands off after a nudge: hold that line, even through the bend
+			px += (hold_x - px) * minf(1.0, 2.5 * dt) + curve * sp * sp * dt * 0.16
 		else:                    # small correction in the same lane: only a weak pull, fine control stays
 			vx += (LANES[lane] - px) * 1.5 * dt
 	px += vx * dt - (0.0 if is_auto else curve * sp * sp * dt * 0.16)
@@ -723,7 +728,7 @@ func _process(dt: float) -> void:
 		cy = zr
 	var sl := (road_y(pos + 700.0) - road_y(pos - 700.0)) / 1400.0
 	slope += (sl - slope) * minf(1.0, dt * 1.6)
-	var pt := 0.035 * tanh((sl - slope) / 0.035) - clampf((v - v0) / maxf(dt, 0.001), -40.0, 20.0) * 0.0011
+	var pt := (0.025 + 0.015 * sp) * tanh((sl - slope) / 0.05) - clampf((v - v0) / maxf(dt, 0.001), -40.0, 20.0) * 0.0011
 	pitch_v += (-58.0 * (pitch - pt) - 6.0 * pitch_v) * dt
 	pitch = clampf(pitch + pitch_v * dt, -0.12, 0.12)
 	var rt := -clampf(al * 0.013 + curve * sp * sp * 0.024, -0.1, 0.1)
@@ -767,11 +772,11 @@ func _process(dt: float) -> void:
 				cv = minf(cv, v)
 			if d < 1250.0 and d > 250.0 and dxl < 0.46 and v > c.v:
 				sfx["bump"].volume_db = linear_to_db(0.4 + 0.6 * clampf((v - c.v) / 40.0, 0.0, 1.0))
-				v = maxf(0.0, cv - 6.0)
-				if bump_t <= 0.0 and started:
+				v = lerpf(v, maxf(0.0, cv - 6.0), 0.6)
+				if bump_t <= 0.0 and started:   # a nudge costs one step of the multiplier, not all of it
 					bump_t = 2.0
-					clean = 0.0
-					mult = 1
+					mult = maxi(1, mult - 1)
+					clean = minf(clean, (mult - 1) * 25.0)
 					bob_v += 9.0
 					dice_v += 3.0
 					pitch_v -= 0.5
@@ -811,7 +816,7 @@ func _process(dt: float) -> void:
 			parts.remove_at(i)
 	var spawn := rain * 110.0 * dt
 	while spawn > randf() and drops.size() < 260:
-		drops.append([randf_range(34, 350), randf_range(15, 119), 2.0 if randf() < 0.3 else 1.0])
+		drops.append([randf_range(34, 350), randf_range(40, 119), 2.0 if randf() < 0.3 else 1.0])   # keep the horizon band clear so the road ahead reads
 		spawn -= 1.0
 	for d in drops:
 		d[1] -= sp * 2.5 * dt * d[2]

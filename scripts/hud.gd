@@ -66,7 +66,7 @@ func _ready() -> void:
 	font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
 	l_score = _label("1P: 000.000", 16, Color("e6e8ee"), Vector2(11, 11))
 	l_hi = _centered("HI-SCORE: 000.000", 16, Color("e6e8ee"), 11)
-	l_toast = _centered("", 16, AMBER, 46)
+	l_toast = _centered("", 16, AMBER, 74)   # below the rear-view mirror
 	l_toast.modulate.a = 0.0
 	_box(Rect2(-2, 408, 450, 26), 0, [0, 2, 2, 0])
 	now_clip = Control.new()   # window the now-playing text scrolls through
@@ -109,7 +109,7 @@ func _ready() -> void:
 func _process(dt: float) -> void:
 	if now_w > 0.0:   # marquee: pause at the start, then scroll and loop
 		now_t += dt
-		l_now.position.x = -roundf(fmod(maxf(0.0, now_t - 2.0) * 30.0, now_w) / 2.0) * 2.0
+		l_now.position.x = -floorf(fmod(maxf(0.0, now_t - 2.0) * 30.0, now_w))
 	if toast_t > 0.0:
 		toast_t -= dt
 		l_toast.modulate.a = clampf(toast_t / 0.4, 0.0, 1.0)

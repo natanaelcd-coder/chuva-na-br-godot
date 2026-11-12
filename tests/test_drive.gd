@@ -335,6 +335,31 @@ func full_drive(v: float, seconds: float, look_s: float) -> Dictionary:
 	await drop()
 	return res
 
+# In-lane dodge: a pothole under the right wheel; the player nudges left for 0.25 s, t seconds ahead, then lets go.
+func nudge_dodge(v: float) -> Dictionary:
+	var rows := []
+	for t in [0.4, 0.7, 1.0, 1.5, 2.0, 3.0]:
+		await make(1, true)
+		var i0 := longest_straight()
+		place(i0, 0.667, v)
+		g.set_auto(false)
+		await step(60)
+		var z: float = g.pos + v * g.UPK * t
+		var si: int = int(z / g.SEG) % g.N
+		g.segs[si].feat.append({"t": 0, "x": 0.867, "w": 0.09})
+		g.bot_steer = -1.0
+		await step(15)
+		g.bot_steer = 0.0
+		var frames := int((t + 0.6) / DT)
+		var px_at := 0.0
+		for i in frames:
+			await process_frame
+			if int(g.pos / g.SEG) % g.N == si:
+				px_at = g.px
+		rows.append({"lead_s": t, "dodged": g.n_holes == 0, "px_at_hole": r3(px_at)})
+		await drop()
+	return {"speed_kmh": v, "runs": rows}
+
 func autopilot(seconds: float) -> Dictionary:
 	await make(3, false, true)
 	g.set_auto(true)
@@ -369,6 +394,7 @@ func _run() -> void:
 	out["ride"] = [await ride(50.0, 40.0), await ride(70.0, 40.0), await ride(95.0, 40.0)]
 	out["full_drive"] = [await full_drive(70.0, 120.0, 1.6), await full_drive(90.0, 120.0, 1.6)]
 	out["autopilot"] = await autopilot(90.0)
+	out["nudge_dodge"] = [await nudge_dodge(70.0), await nudge_dodge(95.0)]
 	out["visibility"] = "medida na imagem renderizada: veja visibility_rendered (qa/shots/visibility.json, gerado por run_qa.sh)"
 	if shots:
 		await make(1, false, true)
@@ -437,7 +463,7 @@ func _diff(a: Image, b: Image) -> int:
 
 func _visibility_rendered() -> void:
 	var res := {"threshold_px": 30, "hole_w": 0.09, "cams": {}}
-	for cam in [0, 1]:
+	for cam in [0, 1, 2]:   # 0 cockpit (dry, no dash), 1 chase, 2 cockpit as played: dash, rain, drops on the glass
 		await make(1, true)
 		g.Y.fill(0.0)
 		for s in g.segs:
@@ -446,18 +472,31 @@ func _visibility_rendered() -> void:
 		var i0 := longest_straight()
 		place(i0, 0.0, 0.0)
 		g.target = 0.0
-		g.rain = 0.0
-		g.rain_goal = 0.0
-		g.drops.clear()
-		g.set_cam(cam)
-		g.get_node("Cockpit").visible = false   # judge the road itself, not the cabin in front of it
+		g.set_cam(1 if cam == 1 else 0)
+		if cam == 2:
+			g.rain = 0.8
+			g.rain_goal = 0.8
+			g.v = 70.0   # drive a moment so drops gather on the glass, then freeze everything
+			g.target = 70.0
+			await step(240)
+			place(i0, 0.0, 0.0)
+			g.v = 0.0
+			g.target = 0.0
+			await step(2)
+			g.set_process(false)
+		else:
+			g.rain = 0.0
+			g.rain_goal = 0.0
+			g.drops.clear()
+			g.get_node("Cockpit").visible = false   # judge the road itself, not the cabin in front of it
+		g.hud.visible = false   # toasts fade and the radio text scrolls: keep the HUD out of the pixel diff
 		await step(20)
 		var rows := []
 		var readable := 0.0
-		for z in [3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 18000, 21000, 25000]:
+		for z in [3000, 4000, 5000, 6000, 8000, 10000, 12000, 13500, 15000, 16500, 18000, 19500, 21000, 22500, 24000, 25500, 27000]:
 			await step(2)
 			var ref := root.get_texture().get_image()
-			var cam_seg := int((g.pos - g.view.back) / g.SEG)
+			var cam_seg: int = int((g.pos - g.view.back) / g.SEG)
 			var si := cam_seg + int((z + g.view.back) / g.SEG)
 			g.segs[si % g.N].feat.append({"t": 0, "x": 0.667, "w": 0.09})
 			await step(2)
@@ -467,7 +506,7 @@ func _visibility_rendered() -> void:
 			rows.append([z, d])
 			if d >= 30:
 				readable = z
-		res.cams["cockpit" if cam == 0 else "chase"] = {"pixels_changed_by_distance": rows, "readable_until_units": readable,
+		res.cams[["cockpit_dry_no_dash", "chase", "cockpit_rain_with_dash"][cam]] = {"pixels_changed_by_distance": rows, "readable_until_units": readable,
 			"lead_time_70kmh_s": snappedf(readable / (70.0 * g.UPK), 0.01), "lead_time_95kmh_s": snappedf(readable / (95.0 * g.UPK), 0.01)}
 		await drop()
 	var f := FileAccess.open(ProjectSettings.globalize_path("res://qa/shots/visibility.json"), FileAccess.WRITE)

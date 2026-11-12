@@ -13,7 +13,7 @@ import json, os
 m = json.load(open("qa/metrics/latest.json"))
 if os.path.exists("qa/shots/visibility.json"):
     v = json.load(open("qa/shots/visibility.json"))
-    lc = {x["speed_kmh"]: x["time_to_target_s"] for x in m.get("lane_change", [])}
+    lc = {x["speed_kmh"]: x["time_to_target_s"] for x in m.get("lane_change", [])}  # margin = lead time - lane change time
     for c in v["cams"].values():
         c["margin_70kmh_s"] = round(c["lead_time_70kmh_s"] - lc.get(70.0, 0), 2)
         c["margin_95kmh_s"] = round(c["lead_time_95kmh_s"] - lc.get(95.0, 0), 2)
