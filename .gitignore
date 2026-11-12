@@ -1,3 +1,4 @@
 .godot/
 *.zip
 qa/metrics/stderr.txt
+qa/metrics/metrics.json
