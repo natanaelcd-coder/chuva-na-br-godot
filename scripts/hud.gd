@@ -13,6 +13,9 @@ var l_kmh: Label
 var l_gear: Label
 var bars: Array = []
 var start: Control
+var now_clip: Control
+var now_w := 0.0
+var now_t := 0.0
 var toast_t := 0.0
 var _fuel := -1
 
@@ -66,10 +69,13 @@ func _ready() -> void:
 	l_toast = _centered("", 16, AMBER, 46)
 	l_toast.modulate.a = 0.0
 	_box(Rect2(-2, 408, 450, 26), 0, [0, 2, 2, 0])
-	l_now = _label("", 8, Color("e6e8ee"), Vector2(10, 417), self, false)
-	l_now.size = Vector2(428, 10)
-	l_now.clip_text = true
-	l_now.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	now_clip = Control.new()   # window the now-playing text scrolls through
+	now_clip.position = Vector2(10, 415)
+	now_clip.size = Vector2(428, 14)
+	now_clip.clip_contents = true
+	now_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(now_clip)
+	l_now = _label("", 8, Color("e6e8ee"), Vector2(0, 2), now_clip, false)
 	_box(Rect2(538, 352, 224, 74), 6, [2, 2, 2, 2])
 	l_kmh = _label("0", 32, Color("3fe0e8"), Vector2(550, 364), self, false)
 	l_kmh.size = Vector2(96, 34)
@@ -101,6 +107,9 @@ func _ready() -> void:
 	set_values(0, 0, 0, "N", 0.8)
 
 func _process(dt: float) -> void:
+	if now_w > 0.0:   # marquee: pause at the start, then scroll and loop
+		now_t += dt
+		l_now.position.x = -roundf(fmod(maxf(0.0, now_t - 2.0) * 30.0, now_w) / 2.0) * 2.0
 	if toast_t > 0.0:
 		toast_t -= dt
 		l_toast.modulate.a = clampf(toast_t / 0.4, 0.0, 1.0)
@@ -125,7 +134,16 @@ func toast(msg: String, dur := 2.6) -> void:
 	toast_t = dur
 
 func set_now(txt: String) -> void:
-	l_now.text = txt
+	var gap := "      "
+	var w := font.get_string_size(txt + gap, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	now_t = 0.0
+	l_now.position.x = 0.0
+	if font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x > now_clip.size.x:
+		now_w = w
+		l_now.text = txt + gap + txt
+	else:
+		now_w = 0.0
+		l_now.text = txt
 
 func hide_start() -> void:
 	start.visible = false

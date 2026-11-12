@@ -129,6 +129,7 @@ var e_amb := 0.7
 # input
 var touch_steer := 0.0
 var press_lane := -1
+var free_t := 0.0
 var prev_input := 0.0
 # test hooks (tests/test_drive.gd): simulated keys and event counters
 var bot_steer := 0.0
@@ -242,7 +243,7 @@ func _populate() -> void:
 		if randf() < 0.1:
 			_add_spr(i, "bush", randf_range(1.25, 1.7), 800.0)
 	for k in 9:
-		_add_spr(120 + k * int(N / 9.0), "sign%d" % (k % SIGN_COUNT), 1.38, 1700.0)
+		_add_spr(120 + k * int(N / 9.0), "sign%d" % [0, 1, 2, 4, 5][k % 5], 1.38, 1700.0)
 	for k in 6:
 		_add_spr(300 + k * int(N / 6.0), "board%d" % (k % BOARD_COUNT), 2.3, 2600.0)
 	for f in [0.3, 0.78]:
@@ -509,7 +510,8 @@ func _splash() -> void:
 		drops.append([randf_range(34, 350), randf_range(15, 119), 2.0 if randf() < 0.5 else 1.0])
 	if cam == 1 and has_car_scr:
 		for i in 40:
-			parts.append([car_scr.x + randf_range(-30, 30) * car_scr.z, car_scr.y - randf_range(0, 6), randf_range(-80, 80), randf_range(-130, -30), randf_range(0.3, 0.8)])
+			var side := -1.0 if i % 2 else 1.0   # two fans of spray, one off each side
+			parts.append([car_scr.x + side * randf_range(18, 32) * car_scr.z, car_scr.y - randf_range(0, 6), side * randf_range(60, 140), randf_range(-140, -40), randf_range(0.4, 0.9)])
 	sfx["splash"].volume_db = linear_to_db(0.4 + 0.6 * clampf(v / 100.0, 0.0, 1.0))
 	_sfx("splash")
 
@@ -525,7 +527,8 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 		zb_v += 500.0 * k
 		roll_v += side * 0.36 * k
 		pitch_v += 0.7 * k
-		vx += side * 0.1
+		vx += side * 0.25 * k / 1.45   # the wheel is yanked toward the hole
+		aqua = maxf(aqua, 0.2)         # a moment with loose grip and no lane magnet
 		kick = side * 0.4 if side != 0.0 else randf_range(-0.25, 0.25)
 		v = maxf(0.0, v - 3.0)
 		bob_v += 10.0
@@ -616,8 +619,8 @@ func _process(dt: float) -> void:
 		for c in cars:
 			if c.dir > 0 and absf(c.x - px) < 0.46:
 				var dd := fposmod(c.z - pos, TRACK)
-				if dd > 250.0 and dd < 3000.0:
-					tgt = minf(tgt, c.v + (dd - 1600.0) * 0.01)
+				if dd > 250.0 and dd < 9000.0:   # square-root braking curve: always enough room to slow down
+					tgt = minf(tgt, c.v + signf(dd - 1600.0) * sqrt(absf(dd - 1600.0) * 0.5))
 	var v0 := v
 	v += clampf(tgt - v, -34.0 * dt, 13.0 * dt)
 	brake = tgt < v - 1.5
@@ -655,6 +658,9 @@ func _process(dt: float) -> void:
 		lane = 0 if px < -0.33 else (2 if px > 0.33 else 1)
 		if dir != 0.0 and prev_input == 0.0:
 			press_lane = lane
+		free_t = 0.0 if dir != 0.0 else free_t + dt
+		if free_t > 0.5:   # hands off for a while: hold the lane centre again
+			press_lane = -1
 	prev_input = dir if not is_auto else 0.0
 	var rate := 5.0 if absf(dir) > absf(steer) else 12.0   # quick to centre, a little slower to turn in
 	steer += clampf(dir - steer, -dt * rate, dt * rate)
@@ -717,7 +723,7 @@ func _process(dt: float) -> void:
 		cy = zr
 	var sl := (road_y(pos + 700.0) - road_y(pos - 700.0)) / 1400.0
 	slope += (sl - slope) * minf(1.0, dt * 1.6)
-	var pt := clampf(sl - slope, -0.035, 0.035) - clampf((v - v0) / maxf(dt, 0.001), -40.0, 20.0) * 0.0011
+	var pt := 0.035 * tanh((sl - slope) / 0.035) - clampf((v - v0) / maxf(dt, 0.001), -40.0, 20.0) * 0.0011
 	pitch_v += (-58.0 * (pitch - pt) - 6.0 * pitch_v) * dt
 	pitch = clampf(pitch + pitch_v * dt, -0.12, 0.12)
 	var rt := -clampf(al * 0.013 + curve * sp * sp * 0.024, -0.1, 0.1)
@@ -760,6 +766,7 @@ func _process(dt: float) -> void:
 			if d > TRACK - 1400.0 and dxl < 0.5:
 				cv = minf(cv, v)
 			if d < 1250.0 and d > 250.0 and dxl < 0.46 and v > c.v:
+				sfx["bump"].volume_db = linear_to_db(0.4 + 0.6 * clampf((v - c.v) / 40.0, 0.0, 1.0))
 				v = maxf(0.0, cv - 6.0)
 				if bump_t <= 0.0 and started:
 					bump_t = 2.0
@@ -844,7 +851,7 @@ func _process(dt: float) -> void:
 		a_rain.volume_db = linear_to_db(maxf(rain * 0.09, 0.0001))
 		a_engine.volume_db = linear_to_db(0.05 + sp * 0.03)
 		a_engine.pitch_scale = (38.0 + v * 0.75) / 60.0
-		a_rumble.volume_db = linear_to_db(maxf(0.0001, (rough - 0.6) * 0.08 * sp + (0.1 if off else 0.0)))
+		a_rumble.volume_db = linear_to_db(maxf(0.0001, ((rough - 0.6) * 0.04 + ROUGH[int(pos / SEG) % N] * 0.10) * sp + (0.1 if off else 0.0)))
 		a_rumble.pitch_scale = 0.8 + 0.4 * sp
 		a_hiss.volume_db = linear_to_db(maxf(0.0001, clampf(absf(curve * sp * sp) * 0.04 + aqua * 0.12 + rain * sp * 0.015, 0.0, 0.15)))
 		if off:

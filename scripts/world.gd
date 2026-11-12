@@ -45,6 +45,13 @@ func _quad(c: Color, p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) -> void
 func _trap(c: Color, x1: float, y1: float, w1: float, x2: float, y2: float, w2: float) -> void:
 	_quad(c, Vector2(x1 - w1, y1), Vector2(x2 - w2, y2), Vector2(x2 + w2, y2), Vector2(x1 + w1, y1))
 
+# light smeared on wet asphalt: three thin stripes that narrow and fade toward the viewer
+func _reflect(cx: float, y: float, w: float, h: float, c: Color) -> void:
+	for i in 3:
+		var t := i / 3.0
+		var ww := w * (1.0 - t * 0.6)
+		draw_rect(Rect2(cx - ww / 2.0, y + h * t + h * 0.08, ww, maxf(0.5, h * 0.18)), Color(c.r, c.g, c.b, c.a * (1.0 - t * 0.55)))
+
 func _glow(x: float, y: float, r: float, col: Color, a: float) -> void:
 	if r >= 1.0:
 		draw_texture_rect(glow_tex, Rect2(x - r, y - r, r * 2.0, r * 2.0), false, Color(col.r, col.g, col.b, a))
@@ -77,9 +84,8 @@ func _draw_player(sx: float, sy: float, s: float) -> void:
 		draw_rect(Rect2(sx + wx * k, sy - 12.0 * k, 9.0 * k, 12.0 * k), Color("05070c"))
 		for tx in [1.5, 4.5, 7.0]:
 			draw_rect(Rect2(sx + (wx + tx) * k, sy - 10.0 * k, 0.5, 8.0 * k), Color("2a2c33"))
-	var refl := Color(0.78, 0.12, 0.14, 0.4 if g.brake else 0.22)
-	draw_rect(Rect2(sx - 27.0 * k, sy, 8.0 * k, 18.0 * k), refl)
-	draw_rect(Rect2(sx + 19.0 * k, sy, 8.0 * k, 18.0 * k), refl)
+	_reflect(sx - 23.0 * k, sy, 8.0 * k, 10.0 * k, Color(0.78, 0.12, 0.14, 0.4 if g.brake else 0.22))
+	_reflect(sx + 23.0 * k, sy, 8.0 * k, 10.0 * k, Color(0.78, 0.12, 0.14, 0.4 if g.brake else 0.22))
 	draw_set_transform(Vector2(sx + g.vx * 2.5 * k, sy - 6.0 * k - e + g.pitch * 42.0 * k), g.roll * 1.9, Vector2.ONE)
 	draw_texture_rect(g.tex["player"], Rect2(-32.0 * k, -44.0 * k, 64.0 * k, 46.0 * k), false)
 	if g.brake:
@@ -242,6 +248,7 @@ func _draw() -> void:
 				_trap(rim_c.lerp(fog, fa), f1, asy, maxf(asw * fw * 0.8, 1.5), f2, hy2, hw)
 				_trap(hole_c.lerp(fog, fa), f1, asy - (asy - hy2) * 0.25, maxf(asw * fw * 0.9, 1.2), f2, hy2, hw * 0.8)
 				draw_rect(Rect2(f2 - hw * 0.8, hy2, hw * 1.6, 0.5), pud_h.lerp(fog, fa))   # wet glint on the far edge
+				draw_rect(Rect2(f2 - hw * 1.2, hy2 - 0.5, hw * 2.4, 1.0), pud_h.lerp(fog, fa * 0.5))   # water in the hole catches the light from far away
 
 	# rain in the air
 	var rain: float = g.rain
@@ -307,12 +314,12 @@ func _draw() -> void:
 			var rh := r.size.y
 			if c.dir > 0:   # tail lights smeared on the wet asphalt
 				var rf := Color(0.78, 0.12, 0.14, 0.3 * alpha)
-				draw_rect(Rect2(rx + rw * 0.06, sy, rw * 0.2, rh * 0.55), rf)
-				draw_rect(Rect2(rx + rw * 0.74, sy, rw * 0.2, rh * 0.55), rf)
+				_reflect(rx + rw * 0.16, sy, rw * 0.2, rh * 0.35, rf)
+				_reflect(rx + rw * 0.84, sy, rw * 0.2, rh * 0.35, rf)
 			else:
 				var rf := Color(1.0, 0.93, 0.67, 0.22 * alpha)
-				draw_rect(Rect2(rx + rw * 0.06, sy, rw * 0.2, rh * 0.8), rf)
-				draw_rect(Rect2(rx + rw * 0.74, sy, rw * 0.2, rh * 0.8), rf)
+				_reflect(rx + rw * 0.16, sy, rw * 0.2, rh * 0.5, rf)
+				_reflect(rx + rw * 0.84, sy, rw * 0.2, rh * 0.5, rf)
 				_glow(rx + rw * 0.16, r.position.y + rh * 0.55, rw * 0.7 + 3.0, Color(1.0, 0.94, 0.7), 0.8 * alpha)
 				_glow(rx + rw * 0.84, r.position.y + rh * 0.55, rw * 0.7 + 3.0, Color(1.0, 0.94, 0.7), 0.8 * alpha)
 		if not ck and sg.i == pseg:
@@ -323,5 +330,5 @@ func _draw() -> void:
 	else:
 		var sc := Color(0.81, 0.88, 0.95, 0.75)
 		for p in g.parts:
-			var sz := 1.0 if p[4] > 0.3 else 0.5
+			var sz := 1.5 if p[4] > 0.3 else 1.0
 			draw_rect(Rect2(p[0], p[1], sz, sz), sc)
