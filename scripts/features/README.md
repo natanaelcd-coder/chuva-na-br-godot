@@ -43,3 +43,5 @@ Draw with the node passed in (`world.draw_rect(...)`, `cockpit.draw_circle(...)`
 - State you can read: `g.state` (`menu|drive|pause`), `g.started`, `g.cfg`, `g.car`, `g.road`, `g.v`, `g.px`, `g.pos`, `g.tday`, `g.rain`,
   `g.km_trip`, `g.trip_time`, `g.cars`, `g.segs`, `g.N`, `g.SEG`, `g.LANES`. Comfort: `g.view_sway` scales view roll/pitch.
 - Art: new sprites go in `tools/art/art_<name>.js` (`Object.assign(window.ART, {...})`), built with `node tools/art/build_art.js`, loaded with `load("res://assets/sprites/<name>.png")`.
+- Cabin: after `setup_done`, `g.get_node("Cockpit").hang_items` (mirror items cockpit.gd draws itself) and `.dog_at` (`[x, y]` of the bobble dog, `[]` for none) can be changed; `penduricalhos.gd` does this for the CABINE screen.
+- HUD top line: `g.hud.set_odo(left, centre)` replaces "1P / HI-SCORE" (used by `hodometro.gd`).

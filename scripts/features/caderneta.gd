@@ -374,7 +374,6 @@ func _fill() -> void:
 		var nm: Label = m.label(s.name, 8, INK if got else DIM, r.position + Vector2(0, 63), body)
 		nm.size = Vector2(CW, 16)
 		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		nm.clip_text = true
 		m.label("%02d" % (i + 1), 8, AMBER if (got and s.get("rare", false)) else Color(DIM, 0.7), r.position + Vector2(4, 4), body)
 	if items.is_empty():
 		return
