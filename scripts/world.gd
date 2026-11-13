@@ -172,7 +172,7 @@ func _draw_player(sx: float, sy: float, s: float) -> void:
 	draw_circle(Vector2.ZERO, 1.0, Color(0, 0, 0, 0.5))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var car: Dictionary = g.car
-	if g.road.surface == "terra" and g.cfg.weather == "sol" and g.v > 15.0:
+	if g.road.surface == "terra" and g.wet_k < 0.15 and g.v > 15.0:
 		for i in 3:
 			_dust(sx + (i - 1) * 24.0 * k, sy - 4.0 * k, 34.0 * k * (0.6 + g.v / 140.0), 0.9)
 	for wx in car.wheel_x:   # wheels stay on the road; the body rides above them
@@ -213,12 +213,12 @@ func _draw() -> void:
 		for i in g.stars.size():
 			var sz := 0.5 if i % 5 else 1.0
 			draw_rect(Rect2(g.stars[i], Vector2(sz, sz)), sc)
-	var sunny: bool = g.cfg.weather == "sol"
+	var sunny: bool = g.sky_k < 0.6   # clear, or the sun still showing through a passing shower
 	if sunny:
 		_sun_moon(hy, night)
 	var cc: Color = top.lerp(hor, 0.35)
 	if sunny:
-		cc = top.lerp(Color.WHITE, 0.45 * clampf(amb, 0.3, 1.0))
+		cc = top.lerp(Color.WHITE, 0.45 * clampf(amb, 0.3, 1.0)).lerp(cc, g.sky_k / 0.6)
 	cc.a = 0.55
 	var sky_off: float = g.sky
 	for c in g.clouds:
@@ -385,6 +385,10 @@ func _draw() -> void:
 			if f.t == 1:
 				_trap(patch_c.lerp(fog, fa), f1, asy, asw * fw, f2, ty, bsw * fw)
 			elif f.t == 2:
+				if g.wet_k < 1.0:   # weather that varies: puddles fill up with the rain and dry out after it
+					fw *= clampf(g.wet_k * 1.4 - 0.2, 0.0, 1.0)
+					if fw <= 0.0:
+						continue
 				_trap(pud_c.lerp(fog, fa), f1, asy, asw * fw * f.a, f2, ty, bsw * fw * f.b)
 				if th > 2.0:
 					_trap(pud_h.lerp(fog, fa), f1 - asw * fw * 0.3, asy - th * 0.4, asw * fw * f.a * 0.35, f2 - bsw * fw * 0.3, asy - th * 0.6, bsw * fw * f.b * 0.35)
@@ -413,7 +417,7 @@ func _draw() -> void:
 	var pp := Vector3.ZERO
 	var pseg := int(g.pos / SEG) % n_seg
 	var wire := Color(0.03, 0.04, 0.06, 0.8)
-	var dusty: bool = g.road.surface == "terra" and g.cfg.weather == "sol"
+	var dusty: bool = g.road.surface == "terra" and g.wet_k < 0.15
 	dust_c = g.e_road0.lerp(Color(0.9, 0.78, 0.62), 0.45)
 	g.has_car_scr = false
 	for n in range(DRAW - 1, 0, -1):
@@ -434,6 +438,8 @@ func _draw() -> void:
 			var r := _sprite(q.tex, q.ww, a_s, asx + asw * q.off, asy, clip, alpha)
 			if r.size.x == 0.0:
 				continue
+			if q.has("draw"):   # features: lights or fire on a roadside sprite (pisca-pisca, fogueira)
+				q.draw.call(self, q, r, alpha)
 			if q.kind == 1:   # pole: string the wires to the previous one
 				var tx := r.position.x + r.size.x / 2.0
 				var ty := r.position.y + r.size.y * 0.08
