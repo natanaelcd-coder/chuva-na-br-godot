@@ -51,7 +51,7 @@ func clear_near(g, dist: float) -> void:   # keep the stretch ahead free of othe
 			g.cars.erase(c)
 
 func want(n: String) -> bool:
-	return only == "" or n.begins_with(only)
+	return only == "" or n.begins_with(only) or only.begins_with(n)
 
 func _run() -> void:
 	if want("frases"):
@@ -144,7 +144,7 @@ func _run() -> void:
 			["caramelo", "br", "dia"], ["borracharia", "br", "noite"], ["led", "expressa", "dia"], ["helicoptero", "expressa", "dia"],
 			["balao", "br", "dia"], ["periquitos", "terra", "dia"], ["vagalumes", "terra", "noite"]]
 		for e in list:
-			if only.begins_with("eventos_") and only != "eventos_" + e[0]:
+			if only.begins_with("eventos_") and not only.contains(e[0]):
 				continue
 			var g = await make("besouro", e[1], "sol", e[2], 0)
 			clear_near(g, 30000.0)
@@ -154,7 +154,10 @@ func _run() -> void:
 			for i in 60 * 40:   # drive until it is close
 				await process_frame
 				var d: float = ev.distance()
-				if d < (9000.0 if ev.seg_i >= 0 else 2600.0) or (d > 1e8 and i > 300):
+				if not ev.sky.is_empty():
+					if i > 300:
+						break
+				elif d < (5000.0 if ev.seg_i >= 0 else 2600.0):
 					break
 			shot("evento_%s" % e[0])
 			g.set_cam(1)

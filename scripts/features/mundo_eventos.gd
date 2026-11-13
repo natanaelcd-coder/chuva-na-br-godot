@@ -119,7 +119,7 @@ func start(id: String) -> void:
 	seg_i = -1
 	close_t = -1.0
 	var home: float = g.LANES[g.road.ours.back()]
-	var shoulder: float = 1.08 if g.cfg.road == "terra" else 1.2
+	var shoulder: float = 1.32 if g.cfg.road == "terra" else 1.2   # clear of the lane even when the autopilot sidesteps a hole
 	match id:
 		"boiada":
 			_make_room(AHEAD - 2000.0, AHEAD + 4000.0, home)
@@ -326,5 +326,5 @@ func draw_world_over(w: Node2D) -> void:
 		if on < 0.2:
 			continue
 		var y: float = hy + 2.0 + f.y + sin(g.t * 0.8 + f.z) * 2.0
-		w._glow(x, y, 4.0, Color(0.85, 1.0, 0.3), 0.5 * on * a)
-		w.draw_rect(Rect2(x, y, 0.5, 0.5), Color(1.0, 1.0, 0.6, on * a))
+		w._glow(x, y, 5.0, Color(0.85, 1.0, 0.3), 0.8 * on * a)
+		w.draw_rect(Rect2(x - 0.5, y - 0.5, 1.0, 1.0), Color(1.0, 1.0, 0.6, on * a))
