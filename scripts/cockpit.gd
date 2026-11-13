@@ -244,6 +244,7 @@ func _draw() -> void:
 			draw_circle(Vector2(0, 4), 9.0, Color("2a2c33"))
 			draw_arc(Vector2(0, 4), 5.0, 0.0, TAU, 20, Color("a8acb5"), 1.0)
 			R("a8acb5", -1, 1, 2, 6)
+	g.feature_call("draw_wheel", [self, wr])   # features: wheel covers (in the turning wheel's frame; rim of radius wr at the origin)
 	_reset()
 
 	# --- arm, watch, hand

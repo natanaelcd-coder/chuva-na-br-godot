@@ -26,9 +26,11 @@ and talks to the rest only through the points below. Keep features self-containe
 | `menu_info() -> String` | menu refresh | replaces the line under the title if not empty |
 | `draw_sky(world, hy)` | `world.gd`, after sun/moon, before hills | rainbow, balloons |
 | `draw_car(world, c, rect, alpha)` | `world.gd`, after each traffic sprite | bumper phrases, blinkers |
+| `draw_player(world, k)` | `world.gd`, right after the player's body in the chase view | stickers (sprite unit (u, v) at ((u - 32) k, (v - 44) k)) |
 | `draw_world_over(world)` | `world.gd`, after road and traffic | overlays in world units (384x216) |
 | `draw_hang(cockpit, anchor)` | `cockpit.gd`, after the mirror ornaments | more things hanging from the mirror |
 | `draw_cabin_mid(cockpit)` | `cockpit.gd`, before gauges, wheel and arm | passenger, dash items |
+| `draw_wheel(cockpit, wr)` | `cockpit.gd`, in the turning wheel's frame, before the arm | wheel covers (rim of radius `wr` at the origin) |
 | `draw_cabin_over(cockpit)` | `cockpit.gd`, last | anything over the cabin |
 
 Draw with the node passed in (`world.draw_rect(...)`, `cockpit.draw_circle(...)`); both work in logical units.
