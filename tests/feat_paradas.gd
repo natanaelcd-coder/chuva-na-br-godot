@@ -39,6 +39,15 @@ func make(car: String, road: String, wx: String, tm: String) -> void:
 	g.setup()
 	g.menu.show_main()
 
+# with estrada.gd the stops come by distance: roll forward until one is placed, then return it
+func a_stop() -> int:
+	var hops := 0
+	while g.postos.is_empty() and hops < 40:
+		g.pos = fmod(g.pos + 600.0 * g.SEG, g.TRACK)
+		hops += 1
+		await step(2)
+	return g.postos[0] if not g.postos.is_empty() else 0
+
 func companion(who: String) -> void:
 	var p = g.get_node("passageiro")
 	while p.who != who:
@@ -96,12 +105,7 @@ func _run() -> void:
 
 	# --- the stop: natural entry (right lane, slow) on the BR
 	var par = g.get_node("parada")
-	var hops := 0
-	while g.postos.is_empty() and hops < 40:   # with estrada.gd the stops come by distance: roll forward until one is placed
-		g.pos = fmod(g.pos + 600.0 * g.SEG, g.TRACK)
-		hops += 1
-		await step(2)
-	var p0: int = g.postos[0]
+	var p0: int = await a_stop()
 	g.set_auto(false)
 	g.pos = (p0 - 20) * g.SEG
 	g.px = g.LANES.back()
@@ -148,8 +152,8 @@ func _run() -> void:
 	await step(30 * 60)
 	g.get_node("passageiro").sleep = 1.0
 	await shot("cab_caramelo_dormindo")
-	g.pos = (g.postos[1] - 100) * g.SEG
-	g.feature_call("drive_key", [KEY_E])
+	g.pos = ((await a_stop()) - 100) * g.SEG
+	g.feature_call("drive_key", [KEY_ENTER])   # Q/E are the turn signals
 	check(g.state == "parada", "E near the venda stops")
 	await step(30)
 	par.order(par.menu_ids[0])
@@ -175,7 +179,7 @@ func _run() -> void:
 	g.set_auto(true)
 	await step(200)
 	await shot("cab_gt_vo_noite")
-	par.enter(g.postos[0])
+	par.enter(await a_stop())
 	await step(30)
 	par.order(par.menu_ids[1])
 	await step(30)

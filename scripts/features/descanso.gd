@@ -33,6 +33,7 @@ var l_left: Label
 
 func _ready() -> void:
 	g = get_parent()
+	g.move_child.call_deferred(self, -1)   # input goes to the last child first: see a key before the postcard takes it
 	g.menu.add_pause_item("MODO DESCANSO", open)
 	layer = CanvasLayer.new()
 	layer.layer = 2   # over the world and cabin, under the menu
