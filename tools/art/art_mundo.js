@@ -215,8 +215,8 @@ OUT.ipe_amarelo = ipe('#fff3b0', '#ffd65a', '#d89a1c', 3);
 OUT.ipe_roxo = ipe('#f0b8f0', '#d070c8', '#8a3a8a', 5);
 OUT.ipe_branco = ipe('#ffffff', '#f2eef2', '#c8bccc', 9);
 OUT.ipe_rosa = ipe('#ffd0e0', '#f08cb0', '#b84a7a', 13);
-OUT.bandeirinhas = mk(240, 60, c => {   // strung across the road between two bamboo poles
-  [14, 224].forEach(x => { R(c, '#c68a5a', x, 0, 3, 60); R(c, '#96643a', x + 2, 0, 1, 60); for (let y = 6; y < 60; y += 9) R(c, '#96643a', x, y, 3, .7); });
+OUT.bandeirinhas = mk(240, 96, c => {   // strung high across the road between two bamboo poles
+  [14, 224].forEach(x => { R(c, '#c68a5a', x, 0, 3, 96); R(c, '#96643a', x + 2, 0, 1, 96); for (let y = 6; y < 96; y += 9) R(c, '#96643a', x, y, 3, .7); });
   flagString(c, 15, 4, 226, 4, 12, 36, 4.5);
   flagString(c, 15, 12, 226, 12, 16, 40, 4);
   flagString(c, 15, 4, 120, 22, 4, 18, 3.5); flagString(c, 120, 22, 226, 4, 4, 18, 3.5);

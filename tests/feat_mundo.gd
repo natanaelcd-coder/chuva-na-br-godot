@@ -154,13 +154,13 @@ func _run() -> void:
 			for i in 60 * 40:   # drive until it is close
 				await process_frame
 				var d: float = ev.distance()
-				if d < 2600.0 or (d > 1e8 and i > 300):
+				if d < (9000.0 if ev.seg_i >= 0 else 2600.0) or (d > 1e8 and i > 300):
 					break
 			shot("evento_%s" % e[0])
 			g.set_cam(1)
 			await step(3)
 			shot("evento_%s_ext" % e[0])
-			for i in 60 * 50:
+			for i in 60 * (25 if e[0] == "boiada" else 6):
 				await process_frame
 				if not ev.active():
 					break
@@ -171,7 +171,12 @@ func _run() -> void:
 		for e in [["ipes", "terra", "dia"], ["ipes", "br", "dia"], ["junina", "terra", "noite"], ["junina", "br", "entardecer"],
 				["natal", "terra", "noite"], ["natal", "br", "noite"], ["natal", "expressa", "noite"], ["verao", "terra", "dia"]]:
 			var g = await make("besouro", e[1], "sol", e[2], 0, e[0])
-			await step(200)
+			await step(100)
+			var spots: Array = feat(g, "mundo_epoca")._spots()
+			spots.sort()
+			g.pos = fposmod(spots[0] * g.SEG - (3200.0 if e[1] == "terra" else 5200.0), g.TRACK)
+			clear_near(g, 30000.0)
+			await step(40)
 			shot("epoca_%s_%s_%s" % [e[0], e[1], e[2]])
 			g.set_cam(1)
 			await step(4)
