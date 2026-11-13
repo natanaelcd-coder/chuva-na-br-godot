@@ -47,3 +47,5 @@ Draw with the node passed in (`world.draw_rect(...)`, `cockpit.draw_circle(...)`
   `summary.code` / `summary.manobras` are added to `trip_ended`'s summary.
 - Audio buses: `Radio`, `Chuva`, `Motor`, `Efeitos` (made by `ajustes.gd`, each with its own volume); put new players on one.
 - Art: new sprites go in `tools/art/art_<name>.js` (`Object.assign(window.ART, {...})`), built with `node tools/art/build_art.js`, loaded with `load("res://assets/sprites/<name>.png")`.
+- Cabin: after `setup_done`, `g.get_node("Cockpit").hang_items` (mirror items cockpit.gd draws itself) and `.dog_at` (`[x, y]` of the bobble dog, `[]` for none) can be changed; `penduricalhos.gd` does this for the CABINE screen.
+- HUD top line: `g.hud.set_odo(left, centre)` replaces "1P / HI-SCORE" (used by `hodometro.gd`).

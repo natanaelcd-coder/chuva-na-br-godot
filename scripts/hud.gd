@@ -114,8 +114,8 @@ static func fmt(n: float) -> String:
 	return s.substr(0, 3) + "." + s.substr(3)
 
 func set_values(score: float, hi: float, kmh: float, gear: String, fuel: float) -> void:
-	l_score.text = "1P: " + fmt(score)
-	l_hi.text = "HI-SCORE: " + fmt(maxf(hi, score))
+	l_score.text = odo[0] if odo.size() == 2 else "1P: " + fmt(score)   # the odometer feature turns the arcade score into km
+	l_hi.text = odo[1] if odo.size() == 2 else "HI-SCORE: " + fmt(maxf(hi, score))
 	l_kmh.text = str(int(round(kmh)))
 	l_gear.text = gear
 	var n := int(ceil(fuel * 6.0))
@@ -123,6 +123,10 @@ func set_values(score: float, hi: float, kmh: float, gear: String, fuel: float) 
 		_fuel = n
 		for i in 6:
 			bars[i].color = (Color("f0484a") if n <= 1 else Color("3fae5a")) if i < n else Color("1a2547")
+
+var odo: Array = []   # [left, centre] texts for the top line, set by scripts/features/hodometro.gd
+func set_odo(left: String, centre: String) -> void:
+	odo = [left, centre]
 
 func toast(msg: String, dur := 2.6) -> void:
 	l_toast.text = msg
