@@ -35,7 +35,7 @@ var car: Dictionary = Cat.CARS["besouro"]
 var road: Dictionary = Cat.ROADS["br"]
 var LANES: Array = [-0.667, 0.0, 0.667]
 var ROADW := 2000.0
-var state := "menu"   # menu | drive | pause
+var state := "menu"   # menu | drive | pause | parada | foto (the last two belong to features and freeze the drive)
 var fog_k := 1.0      # how thick the haze is: rain 1.0, sun lighter
 var headlight := 0.16
 var his := {}         # best score per road
@@ -977,7 +977,7 @@ func _lane_busy(l: int, back: float, slower_only: bool) -> bool:
 
 func _process(dt: float) -> void:
 	dt = minf(dt, 0.05)
-	if state == "pause":
+	if state != "drive" and state != "menu":   # pause, or a feature's own frozen state ("parada", "foto")
 		return
 	t += dt
 	if cfg.time == "ciclo":
