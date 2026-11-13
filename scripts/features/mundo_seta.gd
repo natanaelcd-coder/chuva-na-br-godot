@@ -45,7 +45,7 @@ func _process(dt: float) -> void:
 	var home: float = g.LANES[g.road.ours.back()]
 	var track: float = g.TRACK
 	for c in g.cars:
-		if c.dir < 0 or absf(c.x - home) > 0.3:
+		if c.dir < 0 or absf(c.x - home) > 0.3 or (c.has("evento") and not c.get("seta", false)):   # cattle don't signal
 			continue
 		var d := fposmod(c.z - g.pos, track)
 		var prev: float = c.get("seta_d", d)
