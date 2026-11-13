@@ -55,6 +55,9 @@ var store := ConfigFile.new()   # one save file for everything (user://viagem.cf
 var km_trip := 0.0              # km driven since the player took the wheel
 var trip_time := 0.0            # seconds since then
 var view_sway := 1.0            # comfort: scales how much the view rolls and pitches with the body
+var view_shake := 1.0           # comfort: 0 keeps the inside camera on the road line instead of the bouncing body
+var trip_seed := 0              # seed this trip's road and traffic were drawn with (0: not reseeded, as in tests)
+var next_seed := 0              # set before setup() to rebuild a given trip (trip code, trip of the day)
 
 @onready var hud = $HUD
 @onready var menu = $Menu
@@ -224,6 +227,10 @@ func _ready() -> void:
 
 # Rebuilds the whole trip from cfg: car, road, traffic, weather, time. Called again whenever the menu changes something.
 func setup() -> void:
+	trip_seed = next_seed if next_seed > 0 else (0 if Engine.has_meta("test_seed") else randi_range(1, 9999))
+	next_seed = 0
+	if trip_seed > 0:   # the same seed and options draw the same road and traffic
+		seed(trip_seed)
 	car = Cat.CARS[cfg.car]
 	road = Cat.ROADS[cfg.road]
 	LANES = road.lanes
