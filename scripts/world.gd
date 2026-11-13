@@ -247,7 +247,7 @@ func _draw() -> void:
 	var cpos := fposmod(g.pos - g.view.back, track)
 	var bi := int(cpos / SEG) % n_seg
 	var pct := fmod(cpos, SEG) / SEG
-	var cam_y: float = (g.zb if ck else g.cy) + g.view.camh
+	var cam_y: float = ((g.zb if g.view_shake >= 1.0 else lerpf(g.road_y(g.pos), g.zb, g.view_shake)) if ck else g.cy) + g.view.camh
 	var ROADW: float = g.ROADW
 	var cam_x: float = (g.px if ck else g.cam_x) * ROADW
 	var maxy: float = g.view.maxy

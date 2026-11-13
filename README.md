@@ -25,13 +25,15 @@ As escolhas e o recorde de cada estrada ficam salvos.
 |---|---|
 | Menu: escolher e trocar | setas (ou clique nas setas e nos valores) |
 | Menu: pegar a estrada | Enter (ou clique no botão) |
-| Pausa (continuar, mudar a viagem, som, sair) | Esc |
+| Pausa (continuar, mudar a viagem, som, modo descanso, ajustes, sair) | Esc |
+| Menu: viagem de hoje, ajustes, código da viagem | linha de baixo do menu (setas e Enter) |
 | Virar | setas esquerda/direita ou A/D (ou clique nos lados da tela) |
 | Velocidade de cruzeiro | setas cima/baixo ou W/S |
 | Câmera interna/externa | V |
 | Trocar de estação | R (ou clique no rádio do painel) |
 | Piloto automático | P |
 | Buzina | B |
+| Seta (esquerda/direita) | Q / E |
 | Som | M |
 | Tela cheia | F11 |
 
