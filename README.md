@@ -32,6 +32,8 @@ As escolhas e o recorde de cada estrada ficam salvos.
 | Trocar de estação | R (ou clique no rádio do painel) |
 | Piloto automático | P |
 | Buzina | B |
+| Parar no posto/venda/parada | encoste à direita devagar (abaixo de 35 km/h) ou E perto da parada |
+| Modo foto (Enter fotografa, V câmera, L moldura, F sai) | F |
 | Som | M |
 | Tela cheia | F11 |
 
