@@ -885,6 +885,19 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 		n_puddles += 1
 		puddle_hit.emit(f)
 		_splash()
+	elif f.t == 3:   # speed bump: the body is lifted, the nose pitches, then the springs float it back down
+		var kb := clampf(sp, 0.15, 1.4)
+		zb_v += (150.0 + 520.0 * kb) * car.hole_gain
+		pitch_v -= 0.35 * kb
+		roll_v += randf_range(-0.05, 0.05) * kb
+		bob_v += 6.0 + 10.0 * kb
+		dice_v += randf_range(-2, 2) * kb
+		if sp > 0.5:
+			v = maxf(0.0, v - 4.0 * sp)
+			sfx["hole"].volume_db = linear_to_db(0.25 + 0.4 * clampf(sp, 0.0, 1.0))
+			_sfx("hole")
+			if started:
+				hud.notice("LOMBADA! NA CIDADE, DEVAGAR", 3.0)
 
 # autopilot: weigh potholes, puddles and slower cars over the next ~1.6 s in each lane
 func _danger(l: int, bi: int) -> float:
@@ -892,9 +905,18 @@ func _danger(l: int, bi: int) -> float:
 	var d := 0.0
 	for k in range(2, look):
 		for f in segs[(bi + k) % N].feat:
-			if f.t != 1 and absf(f.x - LANES[l]) < f.w + 0.25:
+			if f.t != 1 and f.t != 3 and absf(f.x - LANES[l]) < f.w + 0.25:
 				d += 1.0 / k
 	return d + (2.0 if _car_ahead(l) < 3000.0 else 0.0)
+
+# speed the autopilot allows with a speed bump ahead: a gentle braking curve down to ~28 km/h over it
+func _bump_limit() -> float:
+	var bi := int(pos / SEG)
+	for k in 110:
+		for f in segs[(bi + k) % N].feat:
+			if f.t == 3:
+				return 28.0 + sqrt(maxf(0.0, k * SEG - fmod(pos, SEG) - 300.0) * 0.25)
+	return 999.0
 
 var _dodge_t := 0.0
 # two-way road: pass a slow car only with a long clear view of the oncoming lane, then pull back in
@@ -997,6 +1019,8 @@ func _process(dt: float) -> void:
 	if started:
 		target = clampf(target + (float(up) - float(dn)) * 28.0 * dt, 0.0, car.top)
 	var tgt := target if started else 55.0
+	if auto or not started:
+		tgt = minf(tgt, _bump_limit())   # the autopilot eases off before a speed bump
 	if fuel <= 0.0:
 		tgt = minf(tgt, 25.0)
 	var walled: bool = road.median != "none"
@@ -1151,7 +1175,7 @@ func _process(dt: float) -> void:
 	cam_x += (px - cam_x) * minf(1.0, dt * 2.4)
 
 	if started:
-		fuel = maxf(0.0, fuel - dt / 250.0 * (v / 70.0))
+		fuel = maxf(0.0, fuel - dt / 600.0 * (v / 70.0))   # a full tank is ~11.7 km; stops come every few km
 		if fuel < 0.2 and not low_warn:
 			low_warn = true
 			hud.toast("NA RESERVA: POSTO NA FAIXA DA DIREITA", 4.0)

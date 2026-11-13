@@ -115,3 +115,15 @@ const ROADS := {
 		"stop": "parada", "stop_sign": "placa_parada", "stop_ww": 6000.0,
 	},
 }
+
+# Towns on the distance signs of each road (made up, but they sound real). The road runs through them in a
+# shuffled order; every name fits a sign (13 letters at most). "exits": side exits on the expressway gantries.
+const TOWNS := {
+	"terra": ["CÓRREGO FUNDO", "VARGEM BONITA", "SÃO BENTO", "POUSO DO ROSA", "SANTA LUZIA", "BARRA DO TATU",
+		"BOA ESPERANÇA", "ÁGUA LIMPA", "MORRO DO CAFÉ", "SANTA RITA", "BREJO ALEGRE", "PEDRA BRANCA"],
+	"br": ["PINHAL ALTO", "RIO DAS ANTAS", "CAMPINA VERDE", "LAGOA DOURADA", "PONTE ALTA", "SÃO MATEUS",
+		"CERRO AZUL", "BALSA NOVA", "TABOÃO", "SERRA DO MAR", "PINHEIROS", "REGISTRO"],
+	"expressa": ["NOVA ARCÁDIA", "VALE DO SOL", "SÃO CAETANO", "CIDADE NOVA", "PORTAL DO SOL", "MONTE MOR",
+		"ITAPECERICA", "BOA VISTA", "RIO CLARINHO", "SANTA BÁRBARA"],
+	"exits": ["JARDIM IPÊ", "VILA NOVA", "PARQUE SUL", "DISTRITO", "CENTRO", "AEROPORTO", "JARDIM ROSA", "ESPERANÇA"],
+}
