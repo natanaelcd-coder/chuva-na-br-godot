@@ -13,6 +13,7 @@ const LIGHT := Color(1.0, 0.88, 0.59)
 
 var g
 var glow_tex: GradientTexture2D
+var player_tex: Texture2D   # paint job from the garage (features/garagem.gd); null: the catalog's sprite
 
 func _ready() -> void:
 	g = get_parent()
@@ -184,7 +185,8 @@ func _draw_player(sx: float, sy: float, s: float) -> void:
 	_reflect(sx - bx0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.12))
 	_reflect(sx + bx0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.12))
 	draw_set_transform(Vector2(sx + g.vx * 2.5 * k, sy - 6.0 * k - e + g.pitch * 42.0 * k), g.roll * 1.9, Vector2.ONE)
-	draw_texture_rect(g.tex[car.player], Rect2(-32.0 * k, -44.0 * k, 64.0 * k, 46.0 * k), false)
+	draw_texture_rect(player_tex if player_tex else g.tex[car.player], Rect2(-32.0 * k, -44.0 * k, 64.0 * k, 46.0 * k), false)
+	g.feature_call("draw_player", [self, k])   # features: stickers on the body (sprite unit (u, v) is at ((u - 32) k, (v - 44) k))
 	if g.brake:
 		for bx in [-bx0, bx0]:
 			draw_circle(Vector2(bx * k, car.brake_y * k), 2.4 * k, Color("ff9a8a"))
