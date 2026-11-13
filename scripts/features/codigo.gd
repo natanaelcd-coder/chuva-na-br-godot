@@ -101,6 +101,8 @@ func _on_trip_ended(summary: Dictionary) -> void:
 func _card(s: Dictionary) -> void:
 	if g.state != "menu" or g.menu.screen_open() or s.get("minutes", 0.0) < 0.2:
 		return
+	if g.get_node_or_null("diario") != null:   # the logbook's postcard already shows the code: one card is enough
+		return
 	g.menu.open_screen("FIM DA VIAGEM", _build_card.bind(s), _card_key)
 
 func _card_key(k: int) -> void:

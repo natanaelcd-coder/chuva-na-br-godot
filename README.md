@@ -35,6 +35,8 @@ As escolhas e o recorde de cada estrada ficam salvos.
 | Piloto automático | P |
 | Buzina | B |
 | Seta (esquerda/direita) | Q / E |
+| Parar no posto/venda/parada | encoste à direita devagar (abaixo de 35 km/h) ou Enter perto da parada |
+| Modo foto (Enter fotografa, V câmera, L moldura, F sai) | F |
 | Som | M |
 | Tela cheia | F11 |
 
