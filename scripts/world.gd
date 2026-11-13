@@ -386,6 +386,16 @@ func _draw() -> void:
 			var fw: float = f.w * 1.3
 			if f.t == 1:
 				_trap(patch_c.lerp(fog, fa), f1, asy, asw * fw, f2, ty, bsw * fw)
+			elif f.t == 3:   # speed bump: a raised band across the road, painted in yellow and black stripes
+				var bc := Color("e0b030").lerp(road0, clampf(1.0 - amb, 0.0, 0.6)).lerp(fog, fa)
+				var bd := road0.lerp(Color.BLACK, 0.45).lerp(fog, fa)
+				var bt := minf(sg.b_sy, asy - 1.5)
+				_trap(bc, asx, asy, asw * 0.97, bsx, bt, bsw * 0.97)
+				for k in range(1, 12, 2):   # dark stripes, so it reads as a bump and not as a line
+					var u0 := -0.97 + k * 0.97 * 2.0 / 12.0
+					var u1 := u0 + 0.97 * 2.0 / 12.0
+					_quad(bd, Vector2(asx + asw * u0, asy), Vector2(bsx + bsw * (u0 + 0.06), bt), Vector2(bsx + bsw * (u1 + 0.06), bt), Vector2(asx + asw * u1, asy))
+				draw_rect(Rect2(bsx - bsw * 0.97, bt - 0.5, bsw * 1.94, 0.5), bc.lerp(Color.WHITE, 0.3))
 			elif f.t == 2:
 				_trap(pud_c.lerp(fog, fa), f1, asy, asw * fw * f.a, f2, ty, bsw * fw * f.b)
 				if th > 2.0:
@@ -427,7 +437,7 @@ func _draw() -> void:
 		var a_s: float = sg.a_s
 		var clip: float = sg.clip
 		for q in sg.spr:
-			if q.kind == 4 and a_s * q.ww * W / 2.0 < 24.0:   # road sign too small for its text: draw a clean blank sign
+			if q.kind == 4 and a_s * q.ww * W / 2.0 < q.get("far", 24.0):   # road sign too small for its text: draw a clean blank sign
 				_sign_far(q.tex, a_s * q.ww * W / 2.0, asx + asw * q.off, asy, clip, alpha)
 				continue
 			if q.kind == 5 and a_s * q.ww * W / 2.0 < 40.0:   # billboard too small for its text: plain panel in its own colours
