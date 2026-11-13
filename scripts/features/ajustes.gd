@@ -99,6 +99,8 @@ func _on_setup() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = g.trip_seed * 7919 + 17
 	var h := get_idx("holes")
+	if g.get_node_or_null("estrada") != null:
+		h = 1   # the road package re-dresses the road itself and asks us for the factor (estrada.gd, _hole_factor)
 	if h == 0:   # every other pothole goes away
 		var n := 0
 		for s in g.segs:

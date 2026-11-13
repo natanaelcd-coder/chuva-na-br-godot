@@ -101,7 +101,10 @@ func _on_setup() -> void:
 	road_id = g.cfg.road
 	R = ROADS[road_id]
 	N = g.N
-	if Engine.has_meta("test_seed"):
+	if g.trip_seed > 0:   # a trip code or the trip of the day: the same seed dresses the same road
+		rng.seed = hash([g.trip_seed, road_id])
+		fx_rng.seed = 7
+	elif Engine.has_meta("test_seed"):
 		rng.seed = hash([Engine.get_meta("test_seed"), road_id])
 		fx_rng.seed = 7
 	else:
@@ -563,12 +566,19 @@ func _clutter(A: int, i: int, in_town: bool) -> void:
 			if A % 60 == 30:
 				_add(i, "sos", 1.3, 500.0)
 
+func _hole_factor() -> float:
+	var aj = g.get_node_or_null("ajustes")
+	if aj == null or not aj.has_method("get_idx"):
+		return 1.0
+	return [0.5, 1.0, 2.0][clampi(aj.get_idx("holes"), 0, 2)]
+
 # potholes, patches and puddles, with the odds of game.gd's _build_surface
 func _surface(A: int, i: int) -> void:
 	var rd: Dictionary = g.road
 	var r: float = g.ROUGH[i]
 	var sg = g.segs[i]
-	if A - last_hole >= rd.hole_gap and rng.randf() < rd.hole_p + r * rd.hole_k:
+	var hf := _hole_factor()   # AJUSTES > BURACOS: fewer, normal, or a bad road
+	if A - last_hole >= int(rd.hole_gap / hf) and rng.randf() < (rd.hole_p + r * rd.hole_k) * hf:
 		last_hole = A
 		sg.feat.append({"t": 0, "x": _pick(g.LANES) + rng.randf_range(-0.22, 0.22), "w": rng.randf_range(0.07, 0.12)})
 	if r > 0.25 and rng.randf() < rd.patch_p:

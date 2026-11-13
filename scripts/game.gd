@@ -86,6 +86,10 @@ var tday := 0.0
 var rain := 0.8
 var rain_t := 20.0
 var rain_goal := -1.0
+var wet_k := 1.0            # how wet the world looks (road, puddles): 1 rain, 0 dry; follows the rain when the weather varies
+var sky_k := 1.0            # how overcast the sky is: 1 rain palette, 0 clear palette (sun, moon, stars)
+var mixed_weather := false  # weather that comes and goes (VARIÁVEL, summer showers): a feature drives rain_goal, wet_k and sky_k
+var showers := false        # summer showers also on a sunny trip (set by a feature before setup)
 var auto := true
 var started := false
 var bump_t := 0.0
@@ -228,6 +232,7 @@ func setup() -> void:
 	next_seed = 0
 	if trip_seed > 0:   # the same seed and options draw the same road and traffic
 		seed(trip_seed)
+	mixed_weather = cfg.weather == "variavel" or (cfg.weather == "sol" and showers)
 	car = Cat.CARS[cfg.car]
 	road = Cat.ROADS[cfg.road]
 	LANES = road.lanes
@@ -260,6 +265,8 @@ func setup() -> void:
 	rain = 0.8 if cfg.weather == "chuva" else 0.0
 	rain_goal = -1.0
 	fog_k = 1.0 if cfg.weather == "chuva" else 0.55
+	wet_k = 1.0 if cfg.weather == "chuva" else 0.0
+	sky_k = wet_k
 	tday = Cat.TIMES[cfg.time].tday
 	hi = float(his.get(cfg.road, 0.0))
 	pos = 0.0
@@ -518,7 +525,7 @@ func _build_surface() -> void:
 		segs[i].y1 = Y[i]
 		segs[i].y2 = Y[(i + 1) % N]
 	var last_hole := -100
-	var wet: bool = cfg.weather == "chuva"
+	var wet: bool = cfg.weather != "sol" or mixed_weather   # where the weather varies, puddles only show while it is wet
 	var pud_x: Array = [-0.8, 0.8] + LANES
 	for i in range(60, N):
 		if i - last_hole >= road.hole_gap and randf() < road.hole_p + ROUGH[i] * road.hole_k:
@@ -574,7 +581,7 @@ func _init_weather() -> void:
 		rain_p.append([randf_range(0, W), randf_range(0, 130), randf_range(3, 7), randf_range(160, 260)])
 	for i in (50 if cfg.weather == "chuva" else 120):
 		stars.append(Vector2(floor(randf_range(0, W)), floor(randf_range(12, 50))))
-	for i in (7 if cfg.weather == "chuva" else 3):
+	for i in (7 if cfg.weather == "chuva" else (5 if mixed_weather else 3)):
 		clouds.append([randf_range(0, 500), randf_range(14, 44), randf_range(40, 110), randf_range(5, 11)])
 	hill_f.resize(512)
 	hill_n.resize(512)
@@ -586,7 +593,7 @@ func _init_weather() -> void:
 		city_l.append([randi() % 512, randi() % 5, randf() < 0.3])
 
 func _env() -> void:
-	var sk: Array = Cat.SKIES[cfg.weather]
+	var sk: Array = Cat.SKIES["chuva" if sky_k >= 1.0 else "sol"]
 	var i := int(tday) % 4
 	var f := tday - floorf(tday)
 	var k := clampf((f - 0.45) / 0.55, 0.0, 1.0)
@@ -599,22 +606,32 @@ func _env() -> void:
 	e_hn = Color(a.hn).lerp(Color(b.hn), s)
 	e_gr = Color(a.gr).lerp(Color(b.gr), s)
 	e_amb = lerpf(a.amb, b.amb, s)
+	if sky_k > 0.0 and sky_k < 1.0:   # weather on the move: the clear sky clouds over toward the rainy one
+		var a2: Dictionary = Cat.SKIES.chuva[i]
+		var b2: Dictionary = Cat.SKIES.chuva[(i + 1) % 4]
+		e_top = e_top.lerp(Color(a2.top).lerp(Color(b2.top), s), sky_k)
+		e_hor = e_hor.lerp(Color(a2.hor).lerp(Color(b2.hor), s), sky_k)
+		e_hf = e_hf.lerp(Color(a2.hf).lerp(Color(b2.hf), s), sky_k)
+		e_hn = e_hn.lerp(Color(a2.hn).lerp(Color(b2.hn), s), sky_k)
+		e_gr = e_gr.lerp(Color(a2.gr).lerp(Color(b2.gr), s), sky_k)
+		e_amb = lerpf(e_amb, lerpf(a2.amb, b2.amb, s), sky_k)
 	e_fog = e_hor.lerp(e_hn, 0.45)
-	var wet: bool = cfg.weather == "chuva"
+	var wet: bool = wet_k >= 1.0
+	var wk := wet_k
 	match road.surface:
 		"terra":   # red earth, darker when it rains
-			e_road0 = (Color8(30, 16, 10) if wet else Color8(44, 24, 15)).lerp(Color8(110, 58, 36) if wet else Color8(150, 84, 50), minf(e_amb, 1.1))
+			e_road0 = Color8(44, 24, 15).lerp(Color8(30, 16, 10), wk).lerp(Color8(150, 84, 50).lerp(Color8(110, 58, 36), wk), minf(e_amb, 1.1))
 			e_road1 = e_road0.lerp(Color.BLACK, 0.06)
 			e_line = e_road0.lerp(Color.BLACK, 0.25)   # wheel ruts
 		"concreto":
-			e_road0 = Color8(24, 26, 30).lerp(Color8(118, 122, 126) if wet else Color8(140, 142, 140), minf(e_amb, 1.1))
+			e_road0 = Color8(24, 26, 30).lerp(Color8(140, 142, 140).lerp(Color8(118, 122, 126), wk), minf(e_amb, 1.1))
 			e_road1 = e_road0.lerp(Color.WHITE, 0.03)
 			e_line = Color8(80, 82, 90).lerp(Color8(230, 232, 238), e_amb * 0.7 + 0.3)
 		_:
-			e_road0 = Color8(13, 17, 25).lerp(Color8(58, 67, 82) if wet else Color8(72, 76, 84), minf(e_amb, 1.1))
-			e_road1 = Color8(14, 18, 27).lerp(Color8(60, 69, 85) if wet else Color8(76, 80, 88), minf(e_amb, 1.1))
+			e_road0 = Color8(13, 17, 25).lerp(Color8(72, 76, 84).lerp(Color8(58, 67, 82), wk), minf(e_amb, 1.1))
+			e_road1 = Color8(14, 18, 27).lerp(Color8(76, 80, 88).lerp(Color8(60, 69, 85), wk), minf(e_amb, 1.1))
 			e_line = Color8(74, 77, 87).lerp(Color8(214, 220, 232), e_amb * 0.7 + 0.3)
-	headlight = clampf((0.9 - e_amb) * 0.5, 0.0, 0.3) if not wet else 0.16 + clampf((0.6 - e_amb) * 0.4, 0.0, 0.1)
+	headlight = 0.16 + clampf((0.6 - e_amb) * 0.4, 0.0, 0.1) if wet else lerpf(clampf((0.9 - e_amb) * 0.5, 0.0, 0.3), 0.16 + clampf((0.6 - e_amb) * 0.4, 0.0, 0.1), wk)
 
 
 # ---------------------------------------------------------------- audio
@@ -861,7 +878,7 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 		if started and hud.toast_t <= 0.0:
 			hud.toast(["EITA, BURACO!", "OPA, BURACO!", "ESSE PEGOU..."].pick_random(), 1.3)
 	elif f.t == 2:   # puddle: drag, a tug on the wheel, a moment of aquaplaning
-		if absf(d) > f.w + 0.24 or splash_t > 0.0 or sp < 0.15:
+		if absf(d) > f.w + 0.24 or splash_t > 0.0 or sp < 0.15 or wet_k < 0.35:   # a dried-up puddle is just road
 			return
 		splash_t = 0.7
 		aqua = 0.5
@@ -891,7 +908,7 @@ func _danger(l: int, bi: int) -> float:
 	var d := 0.0
 	for k in range(2, look):
 		for f in segs[(bi + k) % N].feat:
-			if f.t != 1 and f.t != 3 and absf(f.x - LANES[l]) < f.w + 0.25:
+			if f.t != 1 and f.t != 3 and (f.t != 2 or wet_k > 0.35) and absf(f.x - LANES[l]) < f.w + 0.25:
 				d += 1.0 / k
 	return d + (2.0 if _car_ahead(l) < 3000.0 else 0.0)
 
@@ -993,7 +1010,7 @@ func _process(dt: float) -> void:
 	_env()
 	# rain comes and goes, but stays rain
 	rain_t -= dt
-	if rain_t <= 0.0:
+	if rain_t <= 0.0 and not mixed_weather:   # weather that varies is driven by a feature (mundo_clima)
 		rain_goal = randf_range(0.55, 1.0) if cfg.weather == "chuva" else 0.0
 		rain_t = randf_range(35, 80)
 	if rain_goal >= 0.0:

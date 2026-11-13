@@ -256,6 +256,11 @@ func _process(dt: float) -> void:
 	if bow:
 		_event("arco")
 
+# events announced by the living-world features (mundo_*.gd) through feature_call("world_event", [id])
+func world_event(id: String) -> void:
+	if id == "arco_iris":
+		_event("arco")
+
 # traffic you meet: seen when close ahead; overtaken when it goes from just ahead to just behind
 func _traffic() -> void:
 	var tr: float = g.TRACK

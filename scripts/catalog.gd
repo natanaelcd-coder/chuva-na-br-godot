@@ -4,12 +4,13 @@ extends RefCounted
 
 const CAR_IDS := ["besouro", "picape", "gt"]
 const ROAD_IDS := ["terra", "br", "expressa"]
-const WEATHER_IDS := ["sol", "chuva"]
+const WEATHER_IDS := ["sol", "chuva", "variavel"]
 const TIME_IDS := ["dia", "entardecer", "noite", "ciclo"]
 
 const WEATHER := {
 	"sol": {"name": "SOL", "desc": "Céu aberto, asfalto seco e poeira na terra."},
 	"chuva": {"name": "CHUVA", "desc": "Limpador ligado, poças e asfalto molhado."},
+	"variavel": {"name": "VARIÁVEL", "desc": "Sol, nuvem, pancada de verão e, se der sorte, arco-íris."},
 }
 const TIMES := {
 	"dia": {"name": "DIA", "desc": "Luz cheia, dá para ver longe.", "tday": 0.0},
@@ -126,4 +127,57 @@ const TOWNS := {
 	"expressa": ["NOVA ARCÁDIA", "VALE DO SOL", "SÃO CAETANO", "CIDADE NOVA", "PORTAL DO SOL", "MONTE MOR",
 		"ITAPECERICA", "BOA VISTA", "RIO CLARINHO", "SANTA BÁRBARA"],
 	"exits": ["JARDIM IPÊ", "VILA NOVA", "PARQUE SUL", "DISTRITO", "CENTRO", "AEROPORTO", "JARDIM ROSA", "ESPERANÇA"],
+# ---------------------------------------------------------------- mundo vivo (scripts/features/mundo_*.gd)
+
+# Painted on the back of trucks (and buses and tractors), readable once you get close.
+const FRASES := [
+	"DEUS É FIEL", "NÃO TENHO TUDO QUE AMO, MAS AMO TUDO QUE TENHO", "FILHO DE PEIXE, PEIXINHO É",
+	"QUEM VÊ CARA NÃO VÊ CORAÇÃO", "O QUE É MEU TÁ GUARDADO", "MÃE, TE AMO",
+	"SORRIA, O PATRÃO ESTÁ PAGANDO", "DEVAGAR TAMBÉM CHEGO", "VIDA DE CAMINHONEIRO: SAUDADE E ESTRADA",
+	"QUEM PLANTA COLHE", "A PRESSA É INIMIGA DA PERFEIÇÃO", "NÃO ME SIGA, TAMBÉM ESTOU PERDIDO",
+	"SAÍ DE CASA, MAS A CASA NÃO SAIU DE MIM", "FOI DEUS QUEM ME DEU", "SÓ JESUS SALVA",
+	"MAIS VALE UM BURRO QUE ME CARREGUE DO QUE UM CAVALO QUE ME DERRUBE", "EM CASA DE FERREIRO, ESPETO DE PAU",
+	"QUEM ME VÊ SORRINDO NÃO SABE O QUANTO JÁ CHOREI", "ESTE É O MEU GANHA-PÃO", "LEVE NA ALMA, PESADO NA CARGA",
+	"HOJE TEM, AMANHÃ QUEM SABE", "DIRIJO EU, DEUS ME GUIA", "SE ESTOU NA FRENTE, É PORQUE CHEGUEI PRIMEIRO",
+	"PAI DE FAMÍLIA, NÃO BUZINE", "A ESTRADA É MINHA CASA", "SAUDADE É O AMOR QUE FICA",
+	"QUEM NÃO ARRISCA NÃO PETISCA", "O BOM FILHO À CASA TORNA", "TUDO POSSO NAQUELE QUE ME FORTALECE",
+	"NÃO SOU DONO DO MUNDO, MAS SOU FILHO DO DONO", "LAR DOCE CABINE", "POBRE MAS LIMPINHO",
+	"DEVAGAR SE VAI AO LONGE", "VOU MAS VOLTO", "ELA DISSE QUE IA ESPERAR", "100% MOVIDO A CAFÉ",
+]
+const FRASES_TRATOR := ["DEVAGAR SE VAI AO LONGE", "DEUS É FIEL", "QUEM PLANTA COLHE", "FILHO DA TERRA",
+	"O SOL NASCE PARA TODOS", "TRABALHO DIGNIFICA", "CHUVA É BÊNÇÃO", "SEM PRESSA"]
+const FRASES_ONIBUS := ["DEUS É FIEL", "BOA VIAGEM", "VOLTE SEMPRE", "SAUDADE DE CASA", "FÉ EM DEUS", "VIAJAR É PRECISO"]
+
+# Rare roadside events (mundo_eventos.gd): one every ~3 minutes, never the same twice in a row.
+# roads: where it can happen; luz: "dia" (daylight), "noite", "" (any); aviso: discreet line when it shows up.
+const EVENTOS := {
+	"boiada": {"roads": ["terra"], "luz": "", "aviso": "BOIADA NA ESTRADA: O PEÃO VAI NA FRENTE, SEM PRESSA"},
+	"carroca": {"roads": ["terra"], "luz": "", "aviso": "UMA CARROÇA NO ACOSTAMENTO, NO PASSO DO CAVALO"},
+	"cavalo": {"roads": ["terra", "br"], "luz": "dia", "aviso": "CAVALO SOLTO PASTANDO NA BEIRA DA ESTRADA"},
+	"romeiros": {"roads": ["terra", "br"], "luz": "dia", "aviso": "ROMEIROS A PÉ, A CAMINHO DA CAPELA"},
+	"pamonha": {"roads": ["terra", "br"], "luz": "dia", "aviso": "OLHA A PAMONHA! PAMONHA FRESQUINHA, CURAU E MILHO VERDE"},
+	"carro_som": {"roads": ["br", "terra"], "luz": "", "aviso": "É HOJE, NA PRAÇA DA MATRIZ: QUERMESSE COM QUENTÃO E PASTEL!"},
+	"quermesse": {"roads": ["terra", "br"], "luz": "", "aviso": "QUERMESSE NA BEIRA DA ESTRADA: BANDEIRINHAS E PASTEL"},
+	"ciclista": {"roads": ["terra", "br"], "luz": "dia", "aviso": "CICLISTA NO ACOSTAMENTO: DÊ ESPAÇO"},
+	"caramelo": {"roads": ["br", "terra"], "luz": "", "aviso": "UM VIRA-LATA CARAMELO VENDO A ESTRADA PASSAR"},
+	"borracharia": {"roads": ["br"], "luz": "", "aviso": "BORRACHARIA 24 H, PLACA PINTADA À MÃO"},
+	"led": {"roads": ["expressa"], "luz": "", "aviso": "O PAINEL DE LED MANDOU RECADO"},
+	"helicoptero": {"roads": ["expressa", "br"], "luz": "dia", "aviso": "HELICÓPTERO DA REPORTAGEM DE OLHO NO TRÂNSITO"},
+	"balao": {"roads": ["terra", "br", "expressa"], "luz": "dia", "aviso": "UM BALÃO COLORIDO SUBINDO DEVAGAR"},
+	"periquitos": {"roads": ["terra", "br", "expressa"], "luz": "dia", "aviso": "REVOADA DE PERIQUITOS, NA ALGAZARRA"},
+	"vagalumes": {"roads": ["terra"], "luz": "noite", "aviso": "VAGA-LUMES PISCANDO NO PASTO"},
+}
+# Funny messages for the expressway LED panel event.
+const LED_RECADOS := [["BEBEU?", "CHAME UM AMIGO"], ["SEM PRESSA", "A VIDA AGRADECE"], ["CHUVA?", "FAROL BAIXO"],
+	["MANDE UM", "OI PRA MÃE"], ["CAFÉ", "NA PRÓXIMA"], ["SORRIA", "VOCÊ ESTÁ NA BR"]]
+
+# Seasons (mundo_epoca.gd): "hoje" follows the system date; any of them can be picked all year.
+const EPOCA_IDS := ["hoje", "nenhuma", "verao", "junina", "ipes", "natal"]
+const EPOCAS := {
+	"hoje": {"name": "PELO CALENDÁRIO", "desc": "A época segue a data de hoje."},
+	"nenhuma": {"name": "SEM ÉPOCA", "desc": "A estrada de sempre, sem enfeite."},
+	"verao": {"name": "VERÃO (JANEIRO)", "desc": "Pancada de chuva no meio da tarde, mesmo no sol.", "months": [1]},
+	"junina": {"name": "FESTA JUNINA (JUNHO)", "desc": "Bandeirinhas, fogueira e balão no céu.", "months": [6, 7]},
+	"ipes": {"name": "IPÊS (AGO-SET)", "desc": "Ipês amarelos, roxos e brancos florindo na beira da estrada.", "months": [8, 9]},
+	"natal": {"name": "NATAL (DEZEMBRO)", "desc": "Pisca-pisca nas casas, na capela e nos postes.", "months": [12]},
 }

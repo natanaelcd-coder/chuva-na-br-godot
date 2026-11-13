@@ -12,7 +12,7 @@ const DIM := Color("6f86a8")
 const LINE := Color("9bbbe0")
 const ROAD := {"terra": "SITIO", "br": "BR116", "expressa": "EXPRESSA"}
 const CAR := {"besouro": "BESOURO", "picape": "PICAPE", "gt": "GT"}
-const WEATHER := {"sol": "SOL", "chuva": "CHUVA"}
+const WEATHER := {"sol": "SOL", "chuva": "CHUVA", "variavel": "VARIAVEL"}
 const TIME := {"dia": "DIA", "entardecer": "TARDE", "noite": "NOITE", "ciclo": "CICLO"}
 const KEYCH := {KEY_MINUS: "-", KEY_KP_SUBTRACT: "-", KEY_SPACE: "-"}
 

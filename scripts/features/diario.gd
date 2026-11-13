@@ -54,7 +54,7 @@ func _on_trip_ended(s: Dictionary) -> void:
 	var pas = g.get_node_or_null("passageiro")
 	var fot = g.get_node_or_null("foto")
 	var stops: Array = par.trip_stops.duplicate(true) if par else []
-	if s.km < 0.1 and s.minutes < 0.5 and stops.is_empty():
+	if s.minutes < 0.2 and stops.is_empty():   # same threshold as the trip card it replaces (codigo.gd)
 		return   # just a peek at the road: nothing to remember yet
 	var e := {
 		"date": fot.date_text() if fot else "", "hour": fot.hour_text() if fot else "",
