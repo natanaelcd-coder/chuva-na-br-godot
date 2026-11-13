@@ -6,6 +6,8 @@ const W := 384.0
 var g
 var cock: Texture2D
 var lay: Dictionary
+var hang_items: Array = []   # what hangs from the mirror; starts as the car's own, features may swap it after setup_done
+var dog_at: Array = []       # where the bobble dog sits on the dash ([] = no dog); same
 const SEG7 := {   # tiny seven-segment digits for the GT's dashboard clock: a b c d e f g
 	"0": "1111110", "1": "0110000", "2": "1101101", "3": "1111001", "4": "0110011",
 	"5": "1011011", "6": "1011111", "7": "1110000", "8": "1111111", "9": "1111011"}
@@ -16,6 +18,8 @@ func _ready() -> void:
 func setup() -> void:
 	lay = g.car.layout
 	cock = g.tex[g.car.cockpit]
+	hang_items = lay.hang.duplicate()
+	dog_at = lay.dog.duplicate()
 	queue_redraw()
 
 func _process(_dt: float) -> void:
@@ -100,10 +104,10 @@ func _draw() -> void:
 			var a: float = g.fan_a + i * 2.094
 			draw_line(fc, fc + Vector2(cos(a), sin(a)) * 6.0, Color("6f97c4"), 2.0)
 		R("e6e8ee", fc.x - 0.5, fc.y - 0.5, 1, 1)
-	if not lay.dog.is_empty():
+	if not dog_at.is_empty():
 		var bob: float = g.bob
-		var hy := roundf(lay.dog[1] + bob * 3.0)
-		var hx := roundf(lay.dog[0] + bob * 1.5)
+		var hy := roundf(dog_at[1] + bob * 3.0)
+		var hx := roundf(dog_at[0] + bob * 1.5)
 		R("96643a", hx, hy, 13, 11)
 		R("6e4526", hx - 2, hy + 1, 3, 8)
 		R("6e4526", hx + 12, hy + 1, 3, 8)
@@ -117,7 +121,7 @@ func _draw() -> void:
 	var dice: float = g.dice
 	var ax: float = lay.anchor[0]
 	var ay: float = lay.anchor[1]
-	for item in lay.hang:
+	for item in hang_items:
 		match item:
 			"rosary":
 				for i in range(1, 10):
