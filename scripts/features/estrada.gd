@@ -465,8 +465,10 @@ func _dress(A: int) -> void:
 	if not quiet.has(A):
 		_clutter(A, i, not town.is_empty())
 	quiet.erase(A)
+	var signed := false
 	if pending.has(A):
 		for q in pending[A]:
+			signed = signed or q.kind == 4
 			if not (_clear_r and q.off > 0.0 and not q.keep):
 				sg.spr.append(q)
 		pending.erase(A)
@@ -476,7 +478,7 @@ func _dress(A: int) -> void:
 	if stop_at.has(A):
 		g.postos.append(i)
 		stop_at.erase(A)
-	if _rough_at(A + 95) > 0.25 and _rough_at(A + 94) <= 0.25 and town.is_empty() and not _near_stop(A, 30):
+	if _rough_at(A + 95) > 0.25 and _rough_at(A + 94) <= 0.25 and town.is_empty() and not signed and not _near_stop(A, 30):
 		var w := "sign3" if road_id != "terra" else "placa_gado"   # ~2 s of warning at 100 km/h
 		sg.spr.append(_spr(w, 1.38, 1700.0, 4))
 	if town.is_empty() and A >= 60:
@@ -690,7 +692,7 @@ func _build_dest(body: Control) -> void:
 	dest_txt = opts
 	for i in opts.size():
 		dest_rows.append(g.menu.label(opts[i], 16, INK, Vector2(20, 34 + i * 32), body))
-	g.menu.label("AS PLACAS VERDES CONTAM OS KM ATÉ LÁ. AO CHEGAR, A VIAGEM SEGUE.", 8, Color("6f86a8"), Vector2(20, 176), body)
+	g.menu.label("AS PLACAS DE KM CONTAM A DISTÂNCIA. AO CHEGAR, A VIAGEM SEGUE.", 8, Color("6f86a8"), Vector2(20, 176), body)
 	var seen: Array = g.store_get("estrada", "visitadas", [])
 	var txt := "NENHUMA CIDADE VISITADA AINDA"
 	if not seen.is_empty():

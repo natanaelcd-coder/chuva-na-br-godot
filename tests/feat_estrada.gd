@@ -76,7 +76,7 @@ func shot(name: String) -> void:
 	root.get_texture().get_image().save_png("%s/%s.png" % [out, name])
 
 func _run() -> void:
-	for road in Cat.ROAD_IDS:
+	for road in ([] if OS.get_cmdline_user_args().has("--shots-only") else Cat.ROAD_IDS):
 		print(road)
 		# determinism
 		var ds: Array = []
@@ -154,6 +154,10 @@ func _run() -> void:
 					await shot("town_%s_chase" % road)
 					g.set_cam(0)
 					await shot("town_%s_cockpit" % road)
+			if out != "" and road != "expressa" and f.abs_c >= t0.a + 24 and f.abs_c < t0.a + 26:
+				g.set_cam(1)
+				await shot("bump_%s_chase" % road)
+				g.set_cam(0)
 			if f.abs_c > t0.a + t0.len + 40:
 				break
 		if road != "expressa":
@@ -172,14 +176,16 @@ func shots() -> void:
 		g.begin()
 		g.set_auto(true)
 		g.hud.toast_t = 0.0
+		await ff(g.N)   # the next sign planned ahead (dressed by the time we get there)
 		var a := -1
-		for i in range(f.cursor - g.N + 400, f.cursor):
-			for q in g.segs[i % g.N].spr:
-				if q.name == "placa_km" or q.name == "portico":
-					a = i
-					break
+		for tries in 12:
+			for k in f.pending.keys():
+				for q in f.pending[k]:
+					if (q.name == "placa_km" or q.name == "portico") and (a < 0 or k < a) and k > f.abs_c + 300:
+						a = k
 			if a >= 0:
 				break
+			await ff(800)
 		if a < 0:
 			continue
 		await to_abs(a - 120)
