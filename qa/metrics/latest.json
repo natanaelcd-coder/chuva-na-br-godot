@@ -74,7 +74,7 @@
       "speed_kmh": 90.0
     }
   ],
-  "generated_at": "2026-11-12T23:18:18",
+  "generated_at": "2026-11-13T00:13:09",
   "lane_change": [
     {
       "overshoot_road": 0.042,
@@ -307,7 +307,7 @@
     }
   ],
   "visibility": "medida na imagem renderizada: veja visibility_rendered (qa/shots/visibility.json, gerado por run_qa.sh)",
-  "wall_time_s": 103.375,
+  "wall_time_s": 132.73,
   "visibility_rendered": {
     "cams": {
       "chase": {
