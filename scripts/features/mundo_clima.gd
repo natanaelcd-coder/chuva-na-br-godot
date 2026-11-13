@@ -139,7 +139,7 @@ func _process(dt: float) -> void:
 
 func draw_sky(w: Node2D, hy: float) -> void:
 	if curtain > 0.01:   # the downpour seen coming: a dark cloud bank with grey streaks down to the hills
-		var cx := fposmod(250.0 - g.sky * 0.3, 700.0) - 150.0
+		var cx := fposmod(250.0 - g.sky * 0.3, 500.0) - 50.0
 		var cc: Color = g.e_top.lerp(Color(0.25, 0.28, 0.34), 0.6)
 		cc.a = 0.65 * curtain
 		w.draw_rect(Rect2(cx - 70.0, 18.0, 140.0, 14.0), cc)
@@ -161,7 +161,7 @@ func draw_sky(w: Node2D, hy: float) -> void:
 		var r0 := 96.0
 		for i in cols.size():
 			var c: Color = cols[i]
-			c.a = 0.32 * a
+			c.a = 0.45 * a
 			w.draw_arc(Vector2(cx, hy + 14.0), r0 - i * 2.0, PI, TAU, 72, c, 2.0)
 		var glow := Color(1, 1, 1, 0.06 * a)   # the sky is a touch brighter inside the bow
 		w.draw_arc(Vector2(cx, hy + 14.0), r0 - 20.0, PI, TAU, 72, glow, 10.0)

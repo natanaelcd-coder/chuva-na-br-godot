@@ -124,14 +124,13 @@ func _run() -> void:
 			shot("clima_%s_%s_ext" % [ph[0], ph[1]])
 			g.queue_free()
 			await step(2)
-		# a whole shower cycle, sped up: no NaN, rain comes and goes
+	if want("ciclo"):   # a whole shower cycle, sped up (run it headless): no NaN, rain comes and goes
 		var g = await make("besouro", "br", "variavel", "dia", 0)
 		var cl = feat(g, "mundo_clima")
 		var mx := 0.0
 		var seen := {}
-		for i in 60 * 400:
-			if i % 3 == 0:
-				cl.phase_t -= 1.0
+		for i in 60 * 240:
+			cl.phase_t -= 0.5
 			await process_frame
 			mx = maxf(mx, g.rain)
 			seen[cl.phase] = true
