@@ -127,6 +127,8 @@ const TOWNS := {
 	"expressa": ["NOVA ARCÁDIA", "VALE DO SOL", "SÃO CAETANO", "CIDADE NOVA", "PORTAL DO SOL", "MONTE MOR",
 		"ITAPECERICA", "BOA VISTA", "RIO CLARINHO", "SANTA BÁRBARA"],
 	"exits": ["JARDIM IPÊ", "VILA NOVA", "PARQUE SUL", "DISTRITO", "CENTRO", "AEROPORTO", "JARDIM ROSA", "ESPERANÇA"],
+}
+
 # ---------------------------------------------------------------- mundo vivo (scripts/features/mundo_*.gd)
 
 # Painted on the back of trucks (and buses and tractors), readable once you get close.
