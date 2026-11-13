@@ -3,15 +3,14 @@ extends Node2D
 # World and Cockpit read this node every frame and only draw.
 
 const Seg = preload("res://scripts/seg.gd")
+const Cat = preload("res://scripts/catalog.gd")
 
 const W := 384.0   # logical screen units; the viewport is 2 real pixels per unit
 const H := 216.0
 const SEG := 200.0
 const DRAW := 150
-const ROADW := 2000.0
 const DEPTH := 0.84
 const UPK := 95.0   # world units per km/h per second
-const LANES := [-0.667, 0.0, 0.667]
 const VIEWS := [
 	{"hy": 64.0, "hh": 112.0, "camh": 820.0, "back": 0.0, "maxy": 140.0},      # inside
 	{"hy": 86.0, "hh": 150.0, "camh": 1450.0, "back": 2300.0, "maxy": 232.0}]  # chase
@@ -22,8 +21,27 @@ const STATIONS := [
 const SIGN_COUNT := 6
 const BOARD_COUNT := 4
 const SAVE_PATH := "user://hiscore.txt"
+const CFG_PATH := "user://viagem.cfg"
+const SPRITES := ["tree0", "tree1", "araucaria", "bush", "pole", "lamp", "posto", "sign_posto", "player", "cockpit",
+	"cockpit_picape", "player_picape", "cockpit_gt", "player_gt", "trator", "onibus", "mod0", "mod1", "mod2", "mod3",
+	"front_mod0", "front_mod1", "cerca", "eucalipto", "cafe", "casa_sitio", "capela", "vaca0", "vaca1", "porteira",
+	"placa_queijo", "placa_ovos", "placa_gado", "venda", "ipe", "bambu", "placa_sitio0", "placa_sitio1", "placa_sitio2",
+	"placa_venda", "luminaria", "muro", "portico", "led0", "led1", "sos", "placa_radar", "placa_saida", "placa_pedagio",
+	"placa_parada", "parada"]
+
+# the trip the player picked (menu), and what it resolves to
+var cfg := {"car": "besouro", "road": "br", "weather": "chuva", "time": "entardecer"}
+var car: Dictionary = Cat.CARS["besouro"]
+var road: Dictionary = Cat.ROADS["br"]
+var LANES: Array = [-0.667, 0.0, 0.667]
+var ROADW := 2000.0
+var state := "menu"   # menu | drive | pause
+var fog_k := 1.0      # how thick the haze is: rain 1.0, sun lighter
+var headlight := 0.16
+var his := {}         # best score per road
 
 @onready var hud = $HUD
+@onready var menu = $Menu
 
 # track
 var segs: Array = []
@@ -105,8 +123,9 @@ var wip_phase := 0.0
 var wip_wait := 0.0
 var wip_a := -0.1
 var wip_prev := -0.1
-const WIP := [Vector2(118, 124), Vector2(232, 124)]
-const WLEN := 80.0
+var WIP: Array = [Vector2(118, 124), Vector2(232, 124)]
+var WLEN := 80.0
+var glass := Rect2(34, 40, 316, 79)
 var stars: Array = []
 var clouds: Array = []
 var hill_f := PackedFloat32Array()
@@ -134,8 +153,10 @@ var last_gear_lo := -1.0
 var off_t := 0.0
 var gear_i := 0
 var gear_cand_t := 0.0
-const GEAR_LO := [0.0, 16.0, 32.0, 52.0]
-const GEAR_HI := [16.0, 32.0, 52.0, 110.0]
+var GEAR_LO: Array = [0.0, 16.0, 32.0, 52.0]
+var GEAR_HI: Array = [16.0, 32.0, 52.0, 110.0]
+var auto_off := 0.0
+var overtaking := false   # autopilot borrowing the oncoming lane on a two-way road   # autopilot's offset inside its lane (dirt road: it dodges without leaving the lane)
 var hold_x := 0.0
 var prev_input := 0.0
 # test hooks (tests/test_drive.gd): simulated keys and event counters
@@ -165,7 +186,7 @@ func _ready() -> void:
 		seed(Engine.get_meta("test_seed"))
 	else:
 		randomize()
-	for n in ["tree0", "tree1", "araucaria", "bush", "pole", "lamp", "posto", "sign_posto", "player", "cockpit"]:
+	for n in SPRITES:
 		tex[n] = load("res://assets/sprites/%s.png" % n)
 	for i in 8:
 		tex["car%d" % i] = load("res://assets/sprites/car%d.png" % i)
@@ -177,28 +198,112 @@ func _ready() -> void:
 		tex["board%d" % i] = load("res://assets/sprites/board%d.png" % i)
 	for i in 5:
 		tex["label%d" % i] = load("res://assets/sprites/label%d.png" % i)
-	SKY = [  # dusk, night, dawn, overcast morning
-		{"top": Color("1e2c52"), "hor": Color("6f7fb0"), "hf": Color("2b3a63"), "hn": Color("152238"), "gr": Color("10261f"), "amb": 0.7},
-		{"top": Color("070b18"), "hor": Color("1a2547"), "hf": Color("0f1730"), "hn": Color("090e1c"), "gr": Color("0a1614"), "amb": 0.38},
-		{"top": Color("2a3560"), "hor": Color("e0957a"), "hf": Color("4a3f66"), "hn": Color("1c2238"), "gr": Color("14291f"), "amb": 0.75},
-		{"top": Color("4a6a94"), "hor": Color("a9c0d8"), "hf": Color("4d6a88"), "hn": Color("27405a"), "gr": Color("1d4030"), "amb": 1.0}]
+	_load_cfg()
+	setup()
+	_init_audio()
+	a_rain.play()
+	_tune()
+	menu.show_main()
+
+# Rebuilds the whole trip from cfg: car, road, traffic, weather, time. Called again whenever the menu changes something.
+func setup() -> void:
+	car = Cat.CARS[cfg.car]
+	road = Cat.ROADS[cfg.road]
+	LANES = road.lanes
+	ROADW = road.roadw
+	GEAR_LO = car.gear_lo
+	GEAR_HI = car.gear_hi
+	var lay: Dictionary = car.layout
+	WIP = [Vector2(lay.wipers[0][0], lay.wipers[0][1]), Vector2(lay.wipers[1][0], lay.wipers[1][1])]
+	WLEN = lay.wlen
+	glass = Rect2(lay.glass[0], lay.glass[1], lay.glass[2] - lay.glass[0], lay.glass[3] - lay.glass[1])
+	segs.clear()
+	postos.clear()
+	cars.clear()
+	_car_segs.clear()
+	parts.clear()
+	drops.clear()
+	rain_p.clear()
+	stars.clear()
+	clouds.clear()
+	city_l.clear()
+	_last_y = 0.0
 	_build_track()
 	_populate()
 	_build_surface()
 	for i in range(1, N):   # warn before every rough stretch
 		if ROUGH[i] > 0.25 and ROUGH[i - 1] <= 0.25:
-			_add_spr(i - 95, "sign3", 1.38, 1700.0, 4)   # ~2 s of warning at 100 km/h
+			_add_spr(i - 95, "sign3" if cfg.road != "terra" else "placa_gado", 1.38, 1700.0, 4)   # ~2 s of warning at 100 km/h
 	_spawn_cars()
 	_init_weather()
-	_init_audio()
-	if FileAccess.file_exists(SAVE_PATH):
-		hi = float(FileAccess.get_file_as_string(SAVE_PATH))
+	rain = 0.8 if cfg.weather == "chuva" else 0.0
+	rain_goal = -1.0
+	fog_k = 1.0 if cfg.weather == "chuva" else 0.55
+	tday = Cat.TIMES[cfg.time].tday
+	hi = float(his.get(cfg.road, 0.0))
+	pos = 0.0
+	lane = road.ours.back()
+	overtaking = false
+	px = LANES[lane]
+	cam_x = px
+	vx = 0.0
+	steer = 0.0
+	press_lane = -1
+	hold_x = px
+	v = 55.0 if not started else v
+	gear_i = 0
+	last_gear_lo = -1.0
+	view = _view_for(cam)
 	zb = road_y(pos, 1.0)
 	zr = zb
 	zr_prev = zb
 	cy = zb
+	zb_v = 0.0
+	pitch = 0.0
+	pitch_v = 0.0
+	roll = 0.0
+	roll_v = 0.0
 	_env()
 	_now_playing()
+	$Cockpit.setup()
+
+func _view_for(c: int) -> Dictionary:
+	var vw: Dictionary = VIEWS[c].duplicate()
+	if c == 0:
+		vw.camh = car.camh   # seat height: the pickup sits high, the GT sits low
+	return vw
+
+func nearest_lane(x: float) -> int:
+	var best := 0
+	for i in LANES.size():
+		if absf(LANES[i] - x) < absf(LANES[best] - x):
+			best = i
+	return best
+
+func _load_cfg() -> void:
+	if Engine.has_meta("test_seed"):
+		return
+	var c := ConfigFile.new()
+	if c.load(CFG_PATH) == OK:
+		for k in cfg.keys():
+			var v0 = c.get_value("viagem", k, cfg[k])
+			var ids: Array = {"car": Cat.CAR_IDS, "road": Cat.ROAD_IDS, "weather": Cat.WEATHER_IDS, "time": Cat.TIME_IDS}[k]
+			if ids.has(v0):
+				cfg[k] = v0
+		for r in Cat.ROAD_IDS:
+			his[r] = c.get_value("recordes", r, 0.0)
+	if his.is_empty() and FileAccess.file_exists(SAVE_PATH):   # older single high score belongs to the BR
+		his["br"] = float(FileAccess.get_file_as_string(SAVE_PATH))
+
+func _save_cfg() -> void:
+	if Engine.has_meta("test_seed"):
+		return
+	var c := ConfigFile.new()
+	for k in cfg.keys():
+		c.set_value("viagem", k, cfg[k])
+	for r in his.keys():
+		c.set_value("recordes", r, his[r])
+	c.save(CFG_PATH)
 
 
 # ---------------------------------------------------------------- track
@@ -228,8 +333,7 @@ func _road(n: int, curve: float, hill: float) -> void:
 		_add_seg(curve * pow(1.0 - float(i) / e, 2.0), _eio(y0, y1, float(e + hold + i) / n))
 
 func _build_track() -> void:
-	for r in [[80, 0, 0], [160, 1.6, 12], [120, 0, -10], [140, -2.2, 0], [100, 0, 22], [180, 2.6, -14], [220, 0, 0], [120, -1.4, 18], [120, 1.4, -18],
-			[160, 0, 10], [200, -2.8, -20], [140, 0, 0], [160, 2, 26], [120, 0, -16], [200, -1.8, 0], [240, 0, 8], [160, 3, -10], [140, -3, 10], [200, 0, 0]]:
+	for r in road.track:
 		_road(r[0], r[1], r[2])
 	_road(120, 0.0, -_last_y / SEG)
 	N = segs.size()
@@ -238,7 +342,32 @@ func _build_track() -> void:
 func _add_spr(i: int, t_name: String, off: float, ww: float, kind := 0) -> void:
 	segs[posmod(i, N)].spr.append({"tex": tex[t_name], "off": off, "ww": ww, "kind": kind})
 
+func _clear_around(i: int, r: int) -> void:   # keep a stop's forecourt free of trees and signs
+	for d in range(-r, r + 1):
+		var s = segs[posmod(i + d, N)]
+		s.spr = s.spr.filter(func(q): return q.kind == 1 or q.kind == 6 or q.off < 0.0)
+
+func _add_stops() -> void:
+	for f in [0.3, 0.78]:
+		var i := int(N * f)
+		postos.append(i)
+		_clear_around(i, 20)
+		_add_spr(i, road.stop, 2.75, road.stop_ww, 3)
+		_add_spr(i - 150, road.stop_sign, 1.38, 1700.0, 4)
+		if cfg.road == "br":
+			for d in range(-60, 61, 20):
+				if absi(d) > 10:
+					_add_spr(i + d, "lamp", 1.25, 1100.0, 2)
+
 func _populate() -> void:
+	if cfg.road == "terra":
+		_populate_terra()
+	elif cfg.road == "expressa":
+		_populate_expressa()
+	else:
+		_populate_br()
+
+func _populate_br() -> void:
 	var trees := ["tree0", "tree1", "araucaria", "araucaria"]
 	for i in range(0, N, 14):
 		_add_spr(i, "pole", 1.42, 1100.0, 1)
@@ -253,17 +382,67 @@ func _populate() -> void:
 		_add_spr(120 + k * int(N / 9.0), "sign%d" % [0, 1, 2, 4, 5][k % 5], 1.38, 1700.0, 4)
 	for k in 6:
 		_add_spr(300 + k * int(N / 6.0), "board%d" % (k % BOARD_COUNT), 2.3, 2600.0, 5)
-	for f in [0.3, 0.78]:
-		var i := int(N * f)
-		postos.append(i)
-		for d in range(-20, 21):   # clear the forecourt
-			var s = segs[posmod(i + d, N)]
-			s.spr = s.spr.filter(func(q): return q.kind == 1 or q.off < 0.0)
-		_add_spr(i, "posto", 2.75, 5600.0, 3)
-		_add_spr(i - 150, "sign_posto", 1.38, 1700.0, 4)
-		for d in range(-60, 61, 20):
-			if absi(d) > 10:
-				_add_spr(i + d, "lamp", 1.25, 1100.0, 2)
+	_add_stops()
+
+# farmland in stretches: coffee rows, pasture with cattle, eucalyptus groves, native woods
+func _populate_terra() -> void:
+	var kinds := ["cafe", "pasto", "eucalipto", "mata"]
+	for i in range(0, N, 28):
+		_add_spr(i, "pole", 1.5, 1000.0, 1)
+	for i in N:
+		var zone: String = kinds[(i / 110 + 1) % 4]
+		for side in [-1.0, 1.0]:
+			if i % 3 == 0 and zone != "mata":
+				_add_spr(i, "cerca", side * 1.28, 700.0)
+			match zone:
+				"cafe":
+					if i % 4 == 0:
+						for k in 3:
+							_add_spr(i, "cafe", side * (1.8 + k * 0.9 + randf() * 0.2), 1100.0)
+				"pasto":
+					if randf() < 0.025:
+						_add_spr(i, ["vaca0", "vaca1"].pick_random(), side * randf_range(1.9, 4.5), 900.0)
+					if randf() < 0.03:
+						_add_spr(i, ["tree0", "ipe"].pick_random(), side * randf_range(3.0, 6.0), randf_range(1600, 2300))
+				"eucalipto":
+					if randf() < 0.35:
+						_add_spr(i, "eucalipto", side * randf_range(1.8, 5.5), randf_range(1500, 2100))
+				"mata":
+					if randf() < 0.3:
+						_add_spr(i, ["tree0", "tree1", "araucaria", "bambu", "ipe"].pick_random(), side * randf_range(1.5, 5.0), randf_range(1500, 2400))
+					elif randf() < 0.1:
+						_add_spr(i, "bush", side * randf_range(1.3, 1.8), 800.0)
+	for k in 6:   # farmhouses with their gate, a chapel, roadside stands and brown signs
+		var i := 200 + k * int(N / 6.0)
+		var side := 1.0 if k % 2 == 0 else -1.0
+		_clear_around(i, 3)
+		_add_spr(i, "casa_sitio" if k != 3 else "capela", side * 3.0, 2600.0)
+		_add_spr(i - 6, "porteira", side * 1.42, 900.0)
+		_add_spr(i - 60, ["placa_queijo", "placa_ovos"][k % 2], 1.36, 900.0, 4)
+		_add_spr(i - 120, "placa_sitio%d" % (k % 3), 1.4, 1700.0, 4)
+	_add_stops()
+
+# the expressway: lit median, sound walls through towns, gantries, LED panels and SOS phones
+func _populate_expressa() -> void:
+	for i in range(0, N, 8):
+		_add_spr(i, "luminaria", -1.1, 1900.0, 6)
+	for i in N:
+		var town: bool = (i / 260) % 3 == 1
+		if town and i % 2 == 0:
+			_add_spr(i, "muro", 1.55, 1700.0)
+		elif not town:
+			if randf() < 0.12:
+				_add_spr(i, ["tree0", "tree1", "bush"].pick_random(), randf_range(1.8, 5.0), randf_range(1300, 2200))
+		if randf() < 0.08:
+			_add_spr(i, ["tree0", "tree1"].pick_random(), -randf_range(3.6, 6.0), randf_range(1500, 2200))
+		if i % 60 == 30:
+			_add_spr(i, "sos", 1.3, 500.0)
+	for k in 5:
+		_add_spr(150 + k * int(N / 5.0), "portico", 0.0, ROADW / 2000.0 * 4600.0, 8)
+	for k in 6:
+		_add_spr(400 + k * int(N / 6.0), ["led0", "led1"][k % 2], 2.2, 2600.0, 5)
+		_add_spr(250 + k * int(N / 6.0), ["placa_radar", "placa_saida", "placa_pedagio"][k % 3], 1.4, 1700.0, 4)
+	_add_stops()
 
 # Long undulations baked into the road height, rough stretches, potholes, patches, and puddles in the dips.
 func _build_surface() -> void:
@@ -272,24 +451,27 @@ func _build_surface() -> void:
 	NOISE.resize(N)
 	var zone := PackedFloat32Array()
 	zone.resize(N)
+	var und: float = road.undulation
 	for i in N:
 		var a := float(i) / N * TAU
 		zone[i] = pow(maxf(0.0, sin(a * 6.0 + 1.0)), 1.5)
-		Y[i] = segs[i].y1 + zone[i] * (70.0 * sin(a * 40.0) + 26.0 * sin(a * 187.0 + 2.0))
-		ROUGH[i] = clampf(sin(a * 9.0 + 4.0) * 1.6 - 0.3, 0.0, 1.0)
-		NOISE[i] = randf() * 2.0 - 1.0
+		Y[i] = segs[i].y1 + zone[i] * (70.0 * sin(a * 40.0) + 26.0 * sin(a * 187.0 + 2.0)) * und
+		ROUGH[i] = clampf(sin(a * 9.0 + 4.0) * 1.6 - 0.3 + road.rough_base, 0.0, 1.0)
+		NOISE[i] = (randf() * 2.0 - 1.0) * road.noise
 	for i in N:
 		segs[i].y1 = Y[i]
 		segs[i].y2 = Y[(i + 1) % N]
 	var last_hole := -100
+	var wet: bool = cfg.weather == "chuva"
+	var pud_x: Array = [-0.8, 0.8] + LANES
 	for i in range(60, N):
-		if i - last_hole >= 20 and randf() < 0.001 + ROUGH[i] * 0.008:
+		if i - last_hole >= road.hole_gap and randf() < road.hole_p + ROUGH[i] * road.hole_k:
 			last_hole = i
 			segs[i].feat.append({"t": 0, "x": LANES.pick_random() + randf_range(-0.22, 0.22), "w": randf_range(0.07, 0.12)})
-		if ROUGH[i] > 0.25 and randf() < 0.3:
+		if ROUGH[i] > 0.25 and randf() < road.patch_p:
 			segs[i].feat.append({"t": 1, "x": randf_range(-0.85, 0.85), "w": randf_range(0.1, 0.26)})
-		if zone[i] > 0.25 and Y[i] < Y[i - 1] and Y[i] <= Y[(i + 1) % N] and randf() < 0.2:
-			var fx: float = [-0.8, 0.8, -0.667, 0.0, 0.667].pick_random()
+		if wet and zone[i] > 0.25 and Y[i] < Y[i - 1] and Y[i] <= Y[(i + 1) % N] and randf() < road.puddle_p:
+			var fx: float = pud_x.pick_random()
 			var fw := randf_range(0.16, 0.3)
 			for q in [[-2, 0.3, 0.8], [-1, 0.8, 1.0], [0, 1.0, 0.9], [1, 0.9, 0.35]]:
 				segs[posmod(i + q[0], N)].feat.append({"t": 2, "x": fx, "w": fw, "a": q[1], "b": q[2]})
@@ -305,20 +487,38 @@ func road_y(z: float, rough := 0.0) -> float:
 	return y
 
 func _spawn_cars() -> void:
-	for i in 26:
-		var l := i % 3
-		var sp := randf_range(55, 68) if l == 0 else (randf_range(45, 58) if l == 1 else randf_range(34, 48))
-		var name := "car7" if (l == 2 and randf() < 0.35) else "car%d" % (randi() % 7)
-		cars.append({"z": randf_range(0, TRACK), "x": LANES[l], "v": sp, "tex": tex[name], "dir": 1})
-	for i in 9:
-		cars.append({"z": randf_range(0, TRACK), "x": -2.1 if i % 2 else -2.8, "v": -randf_range(50, 70), "tex": tex["front%d" % (randi() % 3)], "dir": -1})
+	if cfg.road == "terra":
+		for i in 12:   # our side: tractors and old cars; you overtake them through the oncoming lane
+			var tr := i % 4 == 0
+			cars.append({"z": randf_range(0, TRACK), "x": LANES[1], "v": randf_range(18, 24) if tr else randf_range(38, 52),
+				"tex": tex["trator"] if tr else tex["car%d" % (randi() % 7)], "dir": 1})
+		for i in 7:
+			cars.append({"z": randf_range(0, TRACK), "x": LANES[0], "v": -randf_range(40, 58), "tex": tex["front%d" % (randi() % 3)], "dir": -1})
+	elif cfg.road == "expressa":
+		var spd := [[100, 115], [88, 100], [74, 86], [58, 70]]
+		for i in 32:
+			var l := i % 4
+			var heavy := l == 3 and randf() < 0.6
+			var t_name: String = (["car7", "onibus"].pick_random() if heavy else ["mod0", "mod1", "mod2", "mod3", "mod0"].pick_random())
+			cars.append({"z": randf_range(0, TRACK), "x": LANES[l], "v": randf_range(spd[l][0], spd[l][1]), "tex": tex[t_name], "dir": 1})
+		for i in 12:
+			cars.append({"z": randf_range(0, TRACK), "x": -2.4 if i % 2 else -3.1, "v": -randf_range(80, 105),
+				"tex": tex[["front_mod0", "front_mod1", "front0"][i % 3]], "dir": -1})
+	else:
+		for i in 26:
+			var l := i % 3
+			var sp := randf_range(55, 68) if l == 0 else (randf_range(45, 58) if l == 1 else randf_range(34, 48))
+			var name := "car7" if (l == 2 and randf() < 0.35) else "car%d" % (randi() % 7)
+			cars.append({"z": randf_range(0, TRACK), "x": LANES[l], "v": sp, "tex": tex[name], "dir": 1})
+		for i in 9:
+			cars.append({"z": randf_range(0, TRACK), "x": -2.1 if i % 2 else -2.8, "v": -randf_range(50, 70), "tex": tex["front%d" % (randi() % 3)], "dir": -1})
 
 func _init_weather() -> void:
 	for i in 90:
 		rain_p.append([randf_range(0, W), randf_range(0, 130), randf_range(3, 7), randf_range(160, 260)])
-	for i in 50:
+	for i in (50 if cfg.weather == "chuva" else 120):
 		stars.append(Vector2(floor(randf_range(0, W)), floor(randf_range(12, 50))))
-	for i in 7:
+	for i in (7 if cfg.weather == "chuva" else 3):
 		clouds.append([randf_range(0, 500), randf_range(14, 44), randf_range(40, 110), randf_range(5, 11)])
 	hill_f.resize(512)
 	hill_n.resize(512)
@@ -330,22 +530,35 @@ func _init_weather() -> void:
 		city_l.append([randi() % 512, randi() % 5, randf() < 0.3])
 
 func _env() -> void:
+	var sk: Array = Cat.SKIES[cfg.weather]
 	var i := int(tday) % 4
 	var f := tday - floorf(tday)
 	var k := clampf((f - 0.45) / 0.55, 0.0, 1.0)
 	var s := k * k * (3.0 - 2.0 * k)
-	var a: Dictionary = SKY[i]
-	var b: Dictionary = SKY[(i + 1) % 4]
-	e_top = a.top.lerp(b.top, s)
-	e_hor = a.hor.lerp(b.hor, s)
-	e_hf = a.hf.lerp(b.hf, s)
-	e_hn = a.hn.lerp(b.hn, s)
-	e_gr = a.gr.lerp(b.gr, s)
+	var a: Dictionary = sk[i]
+	var b: Dictionary = sk[(i + 1) % 4]
+	e_top = Color(a.top).lerp(Color(b.top), s)
+	e_hor = Color(a.hor).lerp(Color(b.hor), s)
+	e_hf = Color(a.hf).lerp(Color(b.hf), s)
+	e_hn = Color(a.hn).lerp(Color(b.hn), s)
+	e_gr = Color(a.gr).lerp(Color(b.gr), s)
 	e_amb = lerpf(a.amb, b.amb, s)
 	e_fog = e_hor.lerp(e_hn, 0.45)
-	e_road0 = Color8(13, 17, 25).lerp(Color8(58, 67, 82), e_amb)
-	e_road1 = Color8(14, 18, 27).lerp(Color8(60, 69, 85), e_amb)
-	e_line = Color8(74, 77, 87).lerp(Color8(214, 220, 232), e_amb * 0.7 + 0.3)
+	var wet: bool = cfg.weather == "chuva"
+	match road.surface:
+		"terra":   # red earth, darker when it rains
+			e_road0 = (Color8(30, 16, 10) if wet else Color8(44, 24, 15)).lerp(Color8(110, 58, 36) if wet else Color8(150, 84, 50), minf(e_amb, 1.1))
+			e_road1 = e_road0.lerp(Color.BLACK, 0.06)
+			e_line = e_road0.lerp(Color.BLACK, 0.25)   # wheel ruts
+		"concreto":
+			e_road0 = Color8(24, 26, 30).lerp(Color8(118, 122, 126) if wet else Color8(140, 142, 140), minf(e_amb, 1.1))
+			e_road1 = e_road0.lerp(Color.WHITE, 0.03)
+			e_line = Color8(80, 82, 90).lerp(Color8(230, 232, 238), e_amb * 0.7 + 0.3)
+		_:
+			e_road0 = Color8(13, 17, 25).lerp(Color8(58, 67, 82) if wet else Color8(72, 76, 84), minf(e_amb, 1.1))
+			e_road1 = Color8(14, 18, 27).lerp(Color8(60, 69, 85) if wet else Color8(76, 80, 88), minf(e_amb, 1.1))
+			e_line = Color8(74, 77, 87).lerp(Color8(214, 220, 232), e_amb * 0.7 + 0.3)
+	headlight = clampf((0.9 - e_amb) * 0.5, 0.0, 0.3) if not wet else 0.16 + clampf((0.6 - e_amb) * 0.4, 0.0, 0.1)
 
 
 # ---------------------------------------------------------------- audio
@@ -415,7 +628,7 @@ func _now_playing() -> void:
 		var song: Array = st.songs[radio_song]
 		hud.set_now("TOCANDO: %s - %s - %s" % [song[0], song[1], st.name])
 	else:
-		hud.set_now("TOCANDO: SÓ A CHUVA")
+		hud.set_now("TOCANDO: SÓ A CHUVA" if cfg.weather == "chuva" else "TOCANDO: SÓ O VENTO NA JANELA")
 
 func _tune() -> void:
 	radio_song = 0
@@ -444,15 +657,63 @@ func begin() -> void:
 	if started:
 		return
 	started = true
-	target = 70.0
-	hud.hide_start()
+	state = "drive"
+	target = minf(70.0, car.top)
+	score = 0.0
+	mult = 1
+	clean = 0.0
+	fuel = 0.8
+	low_warn = false
+	n_holes = 0
+	n_puddles = 0
+	n_bumps = 0
+	menu.hide_all()
+	hud.set_drive(true)
 	set_auto(false)
-	a_rain.play()
+	set_cam(cam)
 	a_engine.play()
 	a_rumble.play()
 	a_hiss.play()
-	_tune()
 	hud.toast("BOA VIAGEM", 3.0)
+
+# back to the trip planner: the car keeps rolling on autopilot behind the menu
+func to_menu() -> void:
+	_save_hi()
+	started = false
+	state = "menu"
+	auto = true
+	_set_paused_audio(false)
+	a_engine.stop()
+	a_rumble.stop()
+	a_hiss.stop()
+	hud.set_drive(false)
+	menu.show_main()
+
+func pause() -> void:
+	if state != "drive":
+		return
+	state = "pause"
+	_set_paused_audio(true)
+	menu.show_pause()
+
+func resume() -> void:
+	if state != "pause":
+		return
+	state = "drive"
+	_set_paused_audio(false)
+	menu.hide_all()
+
+func _set_paused_audio(p: bool) -> void:
+	for pl in [a_engine, a_rumble, a_hiss, a_rain]:
+		pl.stream_paused = p
+
+# the menu changed one option: rebuild the trip and remember the choice
+func choose(key: String, value: String) -> void:
+	if cfg[key] == value:
+		return
+	cfg[key] = value
+	_save_cfg()
+	setup()
 
 func set_auto(on: bool) -> void:
 	auto = on
@@ -461,9 +722,9 @@ func set_auto(on: bool) -> void:
 
 func set_cam(c: int) -> void:
 	cam = c
-	view = VIEWS[c]
+	view = _view_for(c)
 	$Cockpit.visible = c == 0
-	if started:
+	if state == "drive" and t > 0.5:
 		hud.toast("CÂMERA EXTERNA" if c == 1 else "CÂMERA INTERNA", 1.5)
 
 func _unhandled_input(ev: InputEvent) -> void:
@@ -472,9 +733,10 @@ func _unhandled_input(ev: InputEvent) -> void:
 		if k == KEY_F11:
 			var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
-		elif not started:
-			if k == KEY_ENTER or k == KEY_KP_ENTER or k == KEY_SPACE:
-				begin()
+		elif state == "menu" or state == "pause":
+			menu.key(k)
+		elif k == KEY_ESCAPE:
+			pause()
 		elif k == KEY_R:
 			next_station()
 		elif k == KEY_P:
@@ -486,13 +748,16 @@ func _unhandled_input(ev: InputEvent) -> void:
 		elif k == KEY_B or k == KEY_H:
 			_sfx("horn")
 	elif ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		if state == "menu" or state == "pause":
+			if ev.pressed:
+				menu.click(ev.position)
+			return
 		if not ev.pressed:
 			touch_steer = 0.0
-		elif not started:
-			begin()
 		else:
 			var p: Vector2 = ev.position / 2.0
-			if cam == 0 and p.x > 182 and p.x < 254 and p.y > 136 and p.y < 172:
+			var rh: Array = car.layout.radio_hit
+			if cam == 0 and Rect2(rh[0], rh[1], rh[2], rh[3]).has_point(p):
 				next_station()   # the radio on the dashboard
 			else:
 				touch_steer = -1.0 if p.x < W * 0.42 else (1.0 if p.x > W * 0.58 else 0.0)
@@ -505,16 +770,16 @@ func _save_hi() -> void:
 	if Engine.has_meta("test_seed"):
 		return
 	if score > hi:
-		var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-		if f:
-			f.store_string(str(int(score)))
+		hi = score
+		his[cfg.road] = int(score)
+		_save_cfg()
 
 
 # ---------------------------------------------------------------- update
 
 func _splash() -> void:
 	for i in 60:
-		drops.append([randf_range(34, 350), randf_range(40, 119), 2.0 if randf() < 0.5 else 1.0])
+		drops.append([randf_range(glass.position.x, glass.end.x), randf_range(glass.position.y, glass.end.y), 2.0 if randf() < 0.5 else 1.0])
 	if cam == 1 and has_car_scr:
 		for i in 40:
 			var side := -1.0 if i % 2 else 1.0   # two fans of spray, one off each side
@@ -531,8 +796,8 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 			return
 		var side := 0.0 if (l and r) else (-1.0 if l else 1.0)
 		var k := (0.5 + sp) * (0.75 + 5.0 * clampf(f.w - 0.07, 0.0, 0.05)) * (1.3 if side == 0.0 else 1.0)   # bigger hole, harder hit; both wheels, harder still
-		zb_v += 500.0 * k
-		roll_v += side * 0.36 * k
+		zb_v += 500.0 * k * car.hole_gain
+		roll_v += side * 0.36 * k * car.hole_gain
 		pitch_v += 0.7 * minf(k, 1.35)
 		vx += side * 0.25 * k / 1.45   # the wheel is yanked toward the hole
 		aqua = maxf(aqua, 0.2)         # a moment with loose grip and no lane magnet
@@ -568,24 +833,72 @@ func _danger(l: int, bi: int) -> float:
 	return d + (2.0 if _car_ahead(l) < 3000.0 else 0.0)
 
 var _dodge_t := 0.0
+# two-way road: pass a slow car only with a long clear view of the oncoming lane, then pull back in
+func _auto_overtake() -> void:
+	var home: int = road.ours.back()
+	var other := 0 if home != 0 else 1
+	if not overtaking:
+		if lane == home and _car_ahead(home) < 3200.0 and _oncoming_clear(60000.0):
+			overtaking = true
+			lane = other
+			auto_off = 0.0
+		return
+	var not_past := false
+	var still_behind := false
+	for c in cars:
+		if c.dir > 0 and absf(c.x - LANES[home]) < 0.3:
+			var d := fposmod(c.z - pos + 1400.0, TRACK)
+			if d < 3000.0:   # from 1400 behind to 1600 ahead: not past it yet
+				not_past = true
+			if d > 2300.0 and d < 3000.0:   # its tail still 900+ ahead of us: we can still give up
+				still_behind = true
+	if not not_past or (still_behind and not _oncoming_clear(16000.0)):
+		overtaking = false
+		lane = home
+
+func _oncoming_clear(dist: float) -> bool:
+	for c in cars:
+		if c.dir < 0 and absf(c.x) < 1.0 and fposmod(c.z - pos, TRACK) < dist:
+			return false
+	return true
+
+func _danger_x(x: float, bi: int) -> float:
+	var look := int(v * UPK * 1.6 / SEG) + 1
+	var d := 0.0
+	for k in range(2, look):
+		for f in segs[(bi + k) % N].feat:
+			if f.t == 0 and absf(f.x - x) < f.w + 0.26:
+				d += 1.0 / k
+	return d
+
 func _auto_dodge(bi: int) -> void:
 	_dodge_t -= get_process_delta_time()
 	if _dodge_t > 0.0:
 		return
 	_dodge_t = 0.1
+	if road.ours.size() == 1:   # nowhere to go: shift inside the lane, wheels either side of the hole
+		var best_off := 0.0
+		var best_d := _danger_x(LANES[lane], bi)
+		for o in [-0.24, 0.24]:
+			var d := _danger_x(LANES[lane] + o, bi)
+			if d < best_d * 0.7:
+				best_d = d
+				best_off = o
+		auto_off = best_off
+		return
 	var cur := _danger(lane, bi)
 	if cur <= 0.0:
 		return
 	var best := lane
 	for l in [lane - 1, lane + 1]:
-		if l >= 0 and l < 3 and not _lane_busy(l, 1600.0, false) and _danger(l, bi) < _danger(best, bi) * 0.5:
+		if road.ours.has(l) and not _lane_busy(l, 1600.0, false) and _danger(l, bi) < _danger(best, bi) * 0.5:
 			best = l
 	lane = best
 
 func _car_ahead(l: int) -> float:
 	var best := 1e9
 	for c in cars:
-		if c.dir > 0 and absf(c.x - LANES[l]) < 0.3 and c.v < v:
+		if c.dir > 0 and absf(c.x - LANES[l]) < 0.3 and c.get("cur", c.v) < v:
 			var d := fposmod(c.z - pos, TRACK)
 			if d < best:
 				best = d
@@ -594,19 +907,22 @@ func _car_ahead(l: int) -> float:
 func _lane_busy(l: int, back: float, slower_only: bool) -> bool:
 	for c in cars:
 		if c.dir > 0 and absf(c.x - LANES[l]) < 0.3 and fposmod(c.z - pos + back, TRACK) < 5200.0:
-			if not slower_only or c.v < v + 4.0:
+			if not slower_only or c.get("cur", c.v) < v + 4.0:
 				return true
 	return false
 
 func _process(dt: float) -> void:
 	dt = minf(dt, 0.05)
+	if state == "pause":
+		return
 	t += dt
-	tday = fmod(tday + dt / 110.0, 4.0)
+	if cfg.time == "ciclo":
+		tday = fmod(tday + dt / 110.0, 4.0)
 	_env()
-	# rain comes and goes
+	# rain comes and goes, but stays rain
 	rain_t -= dt
 	if rain_t <= 0.0:
-		rain_goal = 0.0 if randf() < 0.25 else randf_range(0.35, 1.0)
+		rain_goal = randf_range(0.55, 1.0) if cfg.weather == "chuva" else 0.0
 		rain_t = randf_range(35, 80)
 	if rain_goal >= 0.0:
 		rain += clampf(rain_goal - rain, -dt * 0.04, dt * 0.04)
@@ -615,11 +931,12 @@ func _process(dt: float) -> void:
 	var up := Input.is_physical_key_pressed(KEY_UP) or Input.is_physical_key_pressed(KEY_W) or bot_speed > 0.0
 	var dn := Input.is_physical_key_pressed(KEY_DOWN) or Input.is_physical_key_pressed(KEY_S) or bot_speed < 0.0
 	if started:
-		target = clampf(target + (float(up) - float(dn)) * 28.0 * dt, 0.0, 100.0)
+		target = clampf(target + (float(up) - float(dn)) * 28.0 * dt, 0.0, car.top)
 	var tgt := target if started else 55.0
 	if fuel <= 0.0:
 		tgt = minf(tgt, 25.0)
-	var off := px > 1.02   # the median side is the guard rail's job
+	var walled: bool = road.median != "none"
+	var off := px > 1.02 if walled else absf(px) > 1.02   # with a median, the left side is the barrier's job
 	off_t = off_t + dt if off else 0.0
 	if off_t > 0.4:   # a wheel over the line for a moment is not leaving the road
 		tgt = minf(tgt, 30.0)
@@ -628,14 +945,15 @@ func _process(dt: float) -> void:
 		for c in cars:
 			if c.dir > 0 and (absf(c.x - px) < 0.46 or (auto and absf(c.x - LANES[lane]) < 0.3)):
 				var dd := fposmod(c.z - pos, TRACK)
+				var cvv: float = c.get("cur", c.v)   # what it is actually doing, e.g. stuck behind a tractor
 				if dd > 250.0 and dd < 9000.0:   # square-root braking curve: always enough room to slow down
 					if dd < 1600.0:   # already inside the gap: settle just under its speed, don't sink below it
-						tgt = minf(tgt, c.v - (1600.0 - dd) * 0.005)
+						tgt = minf(tgt, cvv - (1600.0 - dd) * 0.005)
 					else:
-						tgt = minf(tgt, c.v + sqrt((dd - 1600.0) * 0.5))
-					close = close or (dd < 4000.0 and v > c.v + 15.0)   # someone slow just appeared close: brake firmly
+						tgt = minf(tgt, cvv + sqrt((dd - 1600.0) * 0.5))
+					close = close or (dd < 4000.0 and v > cvv + 15.0)   # someone slow just appeared close: brake firmly
 	var v0 := v
-	v += clampf(tgt - v, (-70.0 if close else -34.0) * dt, 13.0 * dt)
+	v += clampf(tgt - v, (-(car.brake + 36.0) if close else -car.brake) * dt, car.acc * dt)
 	brake = tgt < v - 1.5
 	var sp := v / 100.0
 	var base = segs[int(pos / SEG) % N]
@@ -652,45 +970,53 @@ func _process(dt: float) -> void:
 		_auto_dodge(base.i)
 		var ahead := _car_ahead(lane)
 		if ahead < 2500.0:
-			v = maxf(v - 30.0 * dt * (1.0 - ahead / 2500.0), 25.0)
+			v = maxf(v - 30.0 * dt * (1.0 - ahead / 2500.0), minf(v, 25.0))   # a floor for braking, never a push
 		if _lane_busy(lane, 0.0, true) and absf(px - LANES[lane]) < 0.25:
 			var moved := false
 			for l in [lane - 1, lane + 1]:
-				if l >= 0 and l < 3 and not _lane_busy(l, 1600.0, false):
+				if road.ours.has(l) and not _lane_busy(l, 1600.0, false):
 					lane = l
 					moved = true
 					break
 			if not moved:
-				v = maxf(v - 40.0 * dt, 30.0)
-		if fuel < 0.6 and not _lane_busy(2, 1600.0, false):
+				v = maxf(v - 40.0 * dt, minf(v, 30.0))
+		var right_lane: int = road.ours.back()
+		if fuel < 0.6 and not _lane_busy(right_lane, 1600.0, false):
 			for p in postos:
 				if posmod(p - base.i, N) < 220:
-					lane = 2
-		dir = clampf((LANES[lane] - px) * 2.4 - vx * 1.6, -0.4, 0.4)
+					lane = right_lane
+		if road.two_way:
+			_auto_overtake()
+		if not road.ours.has(lane) and not overtaking:
+			lane = right_lane
+		dir = clampf((LANES[lane] + auto_off - px) * 2.4 - vx * 1.6, -0.4, 0.4)
 	else:
-		lane = 0 if px < -0.33 else (2 if px > 0.33 else 1)
+		lane = nearest_lane(px)
 		if dir != 0.0 and prev_input == 0.0:
 			press_lane = lane
 		free_t = 0.0 if dir != 0.0 else free_t + dt
 		if free_t > 0.5 and free_t - dt <= 0.5 and lane == press_lane:   # the nudge is over: keep the line the player chose
 			hold_x = clampf(px, LANES[lane] - 0.2, LANES[lane] + 0.2)
 	prev_input = dir if not is_auto else 0.0
-	var rate := 6.0 if absf(dir) > absf(steer) else 12.0   # quick to centre, a little slower to turn in
+	var rate: float = car.steer_rate if absf(dir) > absf(steer) else car.steer_rate * 2.0   # quick to centre, a little slower to turn in
 	steer += clampf(dir - steer, -dt * rate, dt * rate)
 	aqua = maxf(0.0, aqua - dt)
 	splash_t = maxf(0.0, splash_t - dt)
 	var grip := (1.0 - 0.3 * rain * sp) * (0.3 if aqua > 0.0 else 1.0)
 	var vx0 := vx
-	vx += (steer * 1.0 * minf(1.0, sp * 2.5) - vx) * minf(1.0, dt * 9.0 * grip)
-	if dir == 0.0 and not is_auto and aqua <= 0.0 and px < 1.02:
+	vx += (steer * 1.0 * minf(1.0, sp * 2.5) - vx) * minf(1.0, dt * car.grip * grip)
+	if dir == 0.0 and not is_auto and aqua <= 0.0 and (px < 1.02 if walled else absf(px) < 1.02):
 		if lane != press_lane:   # just changed lane (or never steered): settle into the lane centre
 			px += (LANES[lane] - px) * minf(1.0, 2.5 * dt)
 		elif free_t > 0.5:       # hands off after a nudge: hold that line, even through the bend
-			px += (hold_x - px) * minf(1.0, 2.5 * dt) + curve * sp * sp * dt * 0.16 * 0.3   # the bend still leans you out a little
+			px += (hold_x - px) * minf(1.0, 2.5 * dt) + curve * sp * sp * dt * car.curve_push * 0.343   # the bend still leans you out a little
 		else:                    # small correction in the same lane: only a weak pull, fine control stays
 			vx += (LANES[lane] - px) * 1.5 * dt
-	px += vx * dt - (0.0 if is_auto else curve * sp * sp * dt * 0.14)
-	if px < -1.06:
+	px += vx * dt - (0.0 if is_auto else curve * sp * sp * dt * car.curve_push)
+	if not walled and px < -1.7:
+		px = -1.7
+		vx = maxf(vx, 0.0)
+	if walled and px < -1.06:
 		if vx < -0.2 and started and bump_t <= 0.0:   # scraping the median guard rail: you hear and feel it
 			bump_t = 2.0
 			sfx["bump"].volume_db = linear_to_db(clampf(absf(vx), 0.3, 1.0))
@@ -699,10 +1025,10 @@ func _process(dt: float) -> void:
 			roll_v += 0.3
 			mult = maxi(1, mult - 1)   # a scrape costs a step, like a nudge
 			clean = minf(clean, (mult - 1) * 25.0)
-			hud.toast("EPA, GUARD-RAIL!", 1.5)
+			hud.toast("EPA, GUARD-RAIL!" if road.median == "rail" else "EPA, MURETA!", 1.5)
 		px = -1.06
 		vx = maxf(vx, 0.0)
-	if px <= -1.04:   # holding it against the rail scrubs speed
+	if walled and px <= -1.04:   # holding it against the rail scrubs speed
 		v = maxf(0.0, v - 12.0 * dt)
 	if px > 1.7:
 		px = 1.7
@@ -723,7 +1049,7 @@ func _process(dt: float) -> void:
 			for f in segs[i].feat:
 				_hit_feat(f, sp)
 			if postos.has(i):
-				if px > 0.25:
+				if px > LANES.back() - 0.42:
 					fuel = 1.0
 					low_warn = false
 					if started:
@@ -736,13 +1062,13 @@ func _process(dt: float) -> void:
 			i = (i + 1) % N
 
 	# suspension: the body floats over the undulations and takes a while to settle
-	var rough := 1.7 if off else (1.3 if px > 0.33 else (0.6 if px < -0.33 else 1.0))
+	var rough := 1.7 if off else ((1.3 if px > 0.33 else (0.6 if px < -0.33 else 1.0)) if cfg.road == "br" else 1.0)
 	zr = road_y(pos, rough)
 	var zr_v := (zr - zr_prev) / maxf(dt, 0.001)
 	if absf(zr_v) > 5000.0:
 		zr_v = 0.0
 	zr_prev = zr
-	zb_v += (-46.0 * (zb - zr) - 3.0 * (zb_v - zr_v)) * dt
+	zb_v += (-car.spring_k * (zb - zr) - car.spring_c * (zb_v - zr_v)) * dt
 	zb = clampf(zb + zb_v * dt, zr - 240.0, zr + 240.0)
 	cy += (zr - cy) * minf(1.0, dt * 3.0)
 	if absf(zr - cy) > 700.0:
@@ -750,10 +1076,10 @@ func _process(dt: float) -> void:
 	var sl := (road_y(pos + 700.0) - road_y(pos - 700.0)) / 1400.0
 	slope += (sl - slope) * minf(1.0, dt * 1.6)
 	var pt := (0.025 + 0.015 * sp) * tanh((sl - slope) / 0.05) - clampf((v - v0) / maxf(dt, 0.001), -40.0, 20.0) * 0.0011
-	pitch_v += (-58.0 * (pitch - pt) - 6.0 * pitch_v) * dt
+	pitch_v += (-car.pitch_k * (pitch - pt) - car.pitch_c * pitch_v) * dt
 	pitch = clampf(pitch + pitch_v * dt, -0.12, 0.12)
-	var rt := -clampf(al * 0.013 + curve * sp * sp * 0.024, -0.1, 0.1)
-	roll_v += (-36.0 * (roll - rt) - 2.5 * roll_v + (randf_range(-3, 3) * sp if off else 0.0)) * dt
+	var rt := -clampf((al * 0.013 + curve * sp * sp * 0.024) * car.roll_gain, -0.14, 0.14)
+	roll_v += (-car.roll_k * (roll - rt) - car.roll_c * roll_v + (randf_range(-3, 3) * sp if off else 0.0)) * dt
 	roll = clampf(roll + roll_v * dt, -0.16, 0.16)
 	cam_x += (px - cam_x) * minf(1.0, dt * 2.4)
 
@@ -789,8 +1115,8 @@ func _process(dt: float) -> void:
 					cv = o.v
 			var d := fposmod(c.z - pos, TRACK)
 			var dxl := absf(c.x - px)
-			if d > TRACK - 1400.0 and dxl < 0.5:
-				cv = minf(cv, v)
+			if d > TRACK - 1400.0 and dxl < 0.5:   # following us: keep a gap instead of creeping onto our bumper
+				cv = minf(cv, maxf(0.0, v + (TRACK - d - 1000.0) * 0.02))
 			# we cut in front of a faster car close behind: it brakes for about a second and honks, we keep our lane
 			if d > TRACK - 1200.0 and dxl < 0.46 and c.v > v and c.get("honk_t", 0.0) <= 0.0:
 				c.hold_t = 1.2
@@ -822,6 +1148,32 @@ func _process(dt: float) -> void:
 					hud.toast("OPA! SEM PRESSA")
 					n_bumps += 1
 					_sfx("bump")
+		elif road.two_way and absf(c.x) < 1.0:   # oncoming, on our road: flashes and honks, a touch costs a step
+			var d2 := fposmod(c.z - pos, TRACK)
+			var dxo := absf(c.x - px)
+			c.honk_t = maxf(0.0, c.get("honk_t", 0.0) - dt)
+			c.flash_t = maxf(0.0, c.get("flash_t", 0.0) - dt)
+			if started and dxo < 0.46 and d2 < 9000.0 and c.honk_t <= 0.0:
+				c.honk_t = 6.0
+				c.flash_t = 1.4
+				_sfx("horn")
+			if (d2 < 450.0 or d2 > TRACK - 250.0) and dxo < 0.46:
+				px = c.x + 0.48
+				vx = 0.5
+				kick = 0.6
+				if bump_t <= 0.0 and started:
+					bump_t = 2.0
+					v *= 0.75
+					mult = maxi(1, mult - 1)
+					clean = minf(clean, (mult - 1) * 25.0)
+					bob_v += 9.0
+					dice_v += 3.0
+					roll_v += 0.4
+					hud.toast("OLHA A CONTRAMÃO!")
+					n_bumps += 1
+					sfx["bump"].volume_db = 0.0
+					_sfx("bump")
+		c.cur = cv
 		c.z = fposmod(c.z + cv * UPK * dt, TRACK)
 		var cs = segs[int(c.z / SEG) % N]
 		cs.cars.append(c)
@@ -855,7 +1207,7 @@ func _process(dt: float) -> void:
 			parts.remove_at(i)
 	var spawn := rain * 110.0 * dt
 	while spawn > randf() and drops.size() < 260:
-		drops.append([randf_range(34, 350), randf_range(40, 119), 2.0 if randf() < 0.3 else 1.0])   # keep the horizon band clear so the road ahead reads
+		drops.append([randf_range(glass.position.x, glass.end.x), randf_range(glass.position.y, glass.end.y), 2.0 if randf() < 0.3 else 1.0])   # keep the horizon band clear so the road ahead reads
 		spawn -= 1.0
 	for d in drops:
 		d[1] -= sp * 2.5 * dt * d[2]
@@ -885,7 +1237,7 @@ func _process(dt: float) -> void:
 						drops.remove_at(i)
 						break
 	for i in range(drops.size() - 1, -1, -1):
-		if drops[i][1] < 13.0:
+		if drops[i][1] < glass.position.y - 27.0:
 			drops.remove_at(i)
 	if (drops.size() > 230 or rain < 0.05) and drops.size() > 0:
 		drops.remove_at(0)
@@ -899,7 +1251,7 @@ func _process(dt: float) -> void:
 		var cruising := absf(v - v0) / maxf(dt, 0.001) < 2.0
 		var early := 8.0 if cruising else 0.0
 		var cand := 0
-		for gi in range(1, 4):
+		for gi in range(1, GEAR_LO.size()):
 			if v >= GEAR_LO[gi] - early:
 				cand = gi
 		var outside: bool = v < GEAR_LO[gear_i] - early - 0.5 or v > GEAR_HI[gear_i] + 0.5
@@ -913,7 +1265,7 @@ func _process(dt: float) -> void:
 		var g_lo: float = GEAR_LO[gear_i]
 		var g_hi: float = GEAR_HI[gear_i]
 		var rpm := clampf((v - g_lo) / (g_hi - g_lo), 0.0, 1.0)
-		a_engine.pitch_scale = lerpf(a_engine.pitch_scale, 0.9 + 0.45 * rpm, minf(1.0, dt * 8.0))
+		a_engine.pitch_scale = lerpf(a_engine.pitch_scale, car.eng_base + car.eng_span * rpm, minf(1.0, dt * 8.0))
 		if g_lo != last_gear_lo:
 			if g_lo > last_gear_lo and last_gear_lo >= 0.0:
 				pitch_v -= 0.15   # small lurch of the body on the upshift
@@ -931,5 +1283,5 @@ func _process(dt: float) -> void:
 				radio_song = (radio_song + 1) % STATIONS[radio_st].songs.size()
 				_now_playing()
 
-	var gear: String = "N" if v < 1.0 else ["1ª", "2ª", "3ª", "4ª"][gear_i]   # the same gear the engine sound uses
+	var gear: String = "N" if v < 1.0 else ["1ª", "2ª", "3ª", "4ª", "5ª"][gear_i]   # the same gear the engine sound uses
 	hud.set_values(score, hi, v, gear, fuel)

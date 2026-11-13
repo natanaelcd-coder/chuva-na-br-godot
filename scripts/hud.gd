@@ -1,5 +1,5 @@
 extends CanvasLayer
-# Score, toast, now-playing strip, speed/gear/fuel panel and the start screen.
+# Score, toast, now-playing strip and the speed/gear/fuel panel. The trip menu lives in menu.gd.
 
 const AMBER := Color("f2a62a")
 const LINE := Color("9bbbe0")
@@ -12,7 +12,7 @@ var l_now: Label
 var l_kmh: Label
 var l_gear: Label
 var bars: Array = []
-var start: Control
+var drive_nodes: Array = []
 var now_clip: Control
 var now_w := 0.0
 var now_t := 0.0
@@ -66,6 +66,7 @@ func _ready() -> void:
 	font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
 	l_score = _label("1P: 000.000", 16, Color("e6e8ee"), Vector2(11, 11))
 	l_hi = _centered("HI-SCORE: 000.000", 16, Color("e6e8ee"), 11)
+	drive_nodes.append_array([l_score, l_hi])
 	l_toast = _centered("", 16, AMBER, 74)   # below the rear-view mirror
 	l_toast.modulate.a = 0.0
 	_box(Rect2(-2, 408, 450, 26), 0, [0, 2, 2, 0])
@@ -76,6 +77,7 @@ func _ready() -> void:
 	now_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(now_clip)
 	l_now = _label("", 8, Color("e6e8ee"), Vector2(0, 2), now_clip, false)
+	var n0 := get_child_count()
 	_box(Rect2(538, 352, 224, 74), 6, [2, 2, 2, 2])
 	l_kmh = _label("0", 32, Color("3fe0e8"), Vector2(550, 364), self, false)
 	l_kmh.size = Vector2(96, 34)
@@ -91,19 +93,9 @@ func _ready() -> void:
 		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(b)
 		bars.append(b)
-	# start screen
-	start = ColorRect.new()
-	start.color = Color(0.027, 0.043, 0.094, 0.55)
-	start.size = Vector2(768, 432)
-	start.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(start)
-	var title := _centered("CHUVA NA BR", 40, AMBER, 130, start)
-	title.label_settings.shadow_offset = Vector2(3, 3)
-	_centered("Sem pressa, sem game over.", 8, Color("e6e8ee"), 196, start)
-	_centered("Só a estrada, o rádio e o limpador.", 8, Color("e6e8ee"), 212, start)
-	_centered("ENTER OU CLIQUE: GIRAR A CHAVE", 16, AMBER, 250, start)
-	_centered("SETAS DIRIGEM E AJUSTAM A VELOCIDADE - V CÂMERA - R RÁDIO", 8, LINE, 300, start)
-	_centered("P PILOTO AUTOMÁTICO - B BUZINA - M SOM - F11 TELA CHEIA", 8, LINE, 316, start)
+	for i in range(n0, get_child_count()):   # the speed panel only shows while driving
+		drive_nodes.append(get_child(i))
+	set_drive(false)
 	set_values(0, 0, 0, "N", 0.8)
 
 func _process(dt: float) -> void:
@@ -145,5 +137,9 @@ func set_now(txt: String) -> void:
 		now_w = 0.0
 		l_now.text = txt
 
-func hide_start() -> void:
-	start.visible = false
+func set_drive(on: bool) -> void:
+	for n in drive_nodes:
+		n.visible = on
+	if not on:
+		toast_t = 0.0
+		l_toast.modulate.a = 0.0
