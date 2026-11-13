@@ -96,6 +96,11 @@ func _run() -> void:
 
 	# --- the stop: natural entry (right lane, slow) on the BR
 	var par = g.get_node("parada")
+	var hops := 0
+	while g.postos.is_empty() and hops < 40:   # with estrada.gd the stops come by distance: roll forward until one is placed
+		g.pos = fmod(g.pos + 600.0 * g.SEG, g.TRACK)
+		hops += 1
+		await step(2)
 	var p0: int = g.postos[0]
 	g.set_auto(false)
 	g.pos = (p0 - 20) * g.SEG

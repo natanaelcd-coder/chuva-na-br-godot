@@ -166,13 +166,14 @@ func _run() -> void:
 	await step(400)
 	check(g.state == "menu" and ds.silenced and not ds.resting and g.hud.visible, "timer ended: menu in silence")
 	await shot("c09_fim_da_viagem")
-	check(g.menu.screen_open(), "end-of-trip card shown")
+	var dia = g.get_node_or_null("diario")   # with the logbook package the postcard is the end-of-trip card
+	check(g.menu.screen_open() or (dia != null and dia.layer.visible), "end-of-trip card shown")
 	var ev := InputEventKey.new()
 	ev.pressed = true
 	ev.physical_keycode = KEY_ENTER
 	Input.parse_input_event(ev)
 	await step(150)
-	check(not ds.silenced and AudioServer.get_bus_volume_db(0) > -1.0, "a key brings the sound back")
+	check(not ds.silenced and AudioServer.get_bus_volume_db(0) > -1.0, "a key brings the sound back (silenced %s, %.1f dB, state %s)" % [ds.silenced, AudioServer.get_bus_volume_db(0), g.state])
 	g.menu.close_screen()
 
 	# --- maneuvers

@@ -164,6 +164,9 @@ func _set_master(f: float) -> void:
 
 func _process(dt: float) -> void:
 	dt = minf(dt, 0.05)
+	if silenced and Input.is_anything_pressed():   # also when another layer (the postcard) took the key event first
+		silenced = false
+		unsilence = 0.01
 	if l_pause and l_pause.is_visible_in_tree():
 		l_pause.text = ("TIMER DE SONO: FALTAM %d MIN" % minutes_left()) if sleep_total > 0.0 else ""
 		var fr: Control = g.menu.pause_frame
