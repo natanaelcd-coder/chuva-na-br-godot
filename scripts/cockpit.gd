@@ -189,7 +189,7 @@ func _draw() -> void:
 			R("3fe0e8", cx0 + 7.2, lay.clock[1] + 1.2, 0.5, 0.5)
 			R("3fe0e8", cx0 + 7.2, lay.clock[1] + 3.0, 0.5, 0.5)
 	var on: bool = g.radio_st < g.STATIONS.size()
-	var label: int = 4 if g.static_t > 0.0 else g.radio_st
+	var label: int = 4 if g.static_t > 0.0 else (int(g.STATIONS[g.radio_st].label) if on else 3)
 	draw_texture_rect(g.tex["label%d" % label], Rect2(lay.label[0], lay.label[1], 40, 5), false)
 	if on:
 		var sp: float = g.t * 3.0

@@ -30,7 +30,8 @@ As escolhas e o recorde de cada estrada ficam salvos.
 | Virar | setas esquerda/direita ou A/D (ou clique nos lados da tela) |
 | Velocidade de cruzeiro | setas cima/baixo ou W/S |
 | Câmera interna/externa | V |
-| Trocar de estação | R (ou clique no rádio do painel) |
+| Trocar de estação (Serra FM, Litoral FM, Noite AM, fita K7 no Besouro, desligado) | R (ou clique no rádio do painel) |
+| Virar o lado da fita (Besouro, na fita) | T |
 | Piloto automático | P |
 | Buzina | B |
 | Seta (esquerda/direita) | Q / E |
@@ -48,11 +49,13 @@ As escolhas e o recorde de cada estrada ficam salvos.
 - `scripts/world.gd`: céu, estrada pseudo-3D, sprites, trânsito e o carro na câmera externa.
 - `scripts/cockpit.gd`: gotas, limpadores e tudo que se mexe dentro da cabine, com o layout de cada carro.
 - `tools/art/`: gerador da arte nova (`node tools/art/build_art.js`), reaproveitando os desenhos da versão web.
+- `tools/audio/`: gerador das músicas, vinhetas e fundos do rádio (`node tools/audio/build_music.js`), sintetizados no Chromium e gravados em Ogg com o ffmpeg.
+- `scripts/features/radio.gd`: o rádio: programação com locutor, recados, previsão, propaganda e hora certa, recepção por hora e lugar, e a fita K7 do Besouro.
 - `tests/showcase.gd` e `tests/combos.gd`: capturas de várias combinações e um teste que dirige todos os carros em todas as estradas.
 - `scripts/hud.gd`: placar, avisos, painel de velocidade e tela inicial.
 - `shaders/palette.gdshader`: reduz o quadro a 55 cores com pontilhado.
 - `assets/sprites`: PNGs em 2x (uma unidade lógica = 2 pixels). Edite num editor de pixel art e o jogo usa a nova versão.
-- `assets/audio`: três estações de rádio em loop, chuva, motor e efeitos.
+- `assets/audio`: quatro músicas por estação, vinhetas e fundos do locutor, chuva, motor e efeitos.
 - `assets/fonts/Estrada2P.ttf`: fonte Estrada 2P, versão da Press Start 2P com as maiúsculas acentuadas redesenhadas em altura cheia (licença SIL Open Font, em `assets/fonts/OFL.txt`).
 
 A tela interna é 768x432, ampliada sem filtro. Os scripts desenham em unidades lógicas de 384x216.

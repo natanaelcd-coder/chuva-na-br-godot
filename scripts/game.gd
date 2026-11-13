@@ -14,10 +14,6 @@ const UPK := 95.0   # world units per km/h per second
 const VIEWS := [
 	{"hy": 64.0, "hh": 112.0, "camh": 820.0, "back": 0.0, "maxy": 140.0},      # inside
 	{"hy": 86.0, "hh": 150.0, "camh": 1450.0, "back": 2300.0, "maxy": 232.0}]  # chase
-const STATIONS := [
-	{"name": "SERRA FM 98,7", "songs": [["TRIO ASFALTO", "CHUVA NA SERRA"], ["TRIO ASFALTO", "FAROL BAIXO"], ["DONA NEBLINA", "CAFÉ DE BEIRA DE ESTRADA"]]},
-	{"name": "LITORAL FM 102,3", "songs": [["OS VAGALUMES", "JANELA ABERTA"], ["OS VAGALUMES", "MARESIA NO PAINEL"], ["ZÉ DA BALSA", "SAMBA DO ACOSTAMENTO"]]},
-	{"name": "NOITE AM 1040", "songs": [["BANDA NEON", "KM 43"], ["BANDA NEON", "LUZ DE FREIO"], ["SINTONIA FINA", "ÚLTIMO PEDÁGIO"]]}]
 const SIGN_COUNT := 6
 const BOARD_COUNT := 4
 const SAVE_PATH := "user://hiscore.txt"
@@ -187,6 +183,7 @@ var n_bumps := 0
 
 # audio
 var radio_st := 0
+var STATIONS: Array = []   # what R cycles through ({name, short, label, ...}); scripts/features/radio.gd fills it and runs the radio
 var radio_song := 0
 var radio_time := 0.0
 var static_t := 0.0
@@ -629,11 +626,7 @@ func _player(stream: AudioStream) -> AudioStreamPlayer:
 	return p
 
 func _init_audio() -> void:
-	for i in 3:
-		var m: AudioStreamOggVorbis = load("res://assets/audio/radio%d.ogg" % i)
-		m.loop = true
-		music_streams.append(m)
-	a_music = _player(null)
+	a_music = _player(null)   # the radio and the tape play here (scripts/features/radio.gd)
 	var r: AudioStreamOggVorbis = load("res://assets/audio/rain.ogg")
 	r.loop = true
 	a_rain = _player(r)
@@ -682,27 +675,13 @@ func _sfx(n: String) -> void:
 		sfx[n].play()
 
 func _now_playing() -> void:
-	if radio_st < STATIONS.size():
-		var st: Dictionary = STATIONS[radio_st]
-		var song: Array = st.songs[radio_song]
-		hud.set_now("TOCANDO: %s - %s - %s" % [song[0], song[1], st.name])
-	else:
-		hud.set_now("TOCANDO: SÓ A CHUVA" if cfg.weather == "chuva" else "TOCANDO: SÓ O VENTO NA JANELA")
+	feature_call("radio_now_playing")
 
 func _tune() -> void:
-	radio_song = 0
-	radio_time = 0.0
-	a_music.stop()
-	if radio_st < STATIONS.size():
-		a_music.stream = music_streams[radio_st]
-		a_music.play()
-	_now_playing()
+	feature_call("radio_tune")
 
 func next_station() -> void:
-	radio_st = (radio_st + 1) % (STATIONS.size() + 1)
-	static_t = 0.35
-	_sfx("static")
-	_tune()
+	feature_call("radio_next")
 
 func set_sound(on: bool) -> void:
 	sound_on = on
@@ -1353,13 +1332,6 @@ func _process(dt: float) -> void:
 		a_hiss.volume_db = linear_to_db(maxf(0.0001, clampf(absf(curve * sp * sp) * 0.04 + aqua * 0.12 + rain * sp * 0.015, 0.0, 0.15)))
 		if off:
 			kick += randf_range(-0.05, 0.05)
-		static_t = maxf(0.0, static_t - dt)
-		if radio_st < STATIONS.size():
-			radio_time += dt
-			if radio_time >= music_streams[radio_st].get_length():
-				radio_time = 0.0
-				radio_song = (radio_song + 1) % STATIONS[radio_st].songs.size()
-				_now_playing()
 
 	var gear: String = "N" if v < 1.0 else ["1ª", "2ª", "3ª", "4ª", "5ª"][gear_i]   # the same gear the engine sound uses
 	hud.set_values(score, hi, v, gear, fuel)
