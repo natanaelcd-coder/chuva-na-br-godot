@@ -6,6 +6,7 @@ extends Node
 # - Green (brown on the dirt road) distance signs name real towns with real km, counting down as you go;
 #   the expressway gets gantries instead. An optional DESTINO (main menu) ends in a small celebration.
 # - Now and then the road runs through a small town with two painted speed bumps (feat t = 3).
+# - The crests of the road (game.gd, crest_dress) move every lap too, each with its warning sign.
 # Everything random here comes from one RandomNumberGenerator seeded per trip (Engine "test_seed" in tests).
 
 const Cat = preload("res://scripts/catalog.gd")
@@ -458,6 +459,7 @@ func _dress(A: int) -> void:
 	var sg = g.segs[i]
 	if A >= N:
 		_maybe_flip(i)
+	g.crest_dress(A)   # this lap's crests (game.gd), wherever they fall now
 	g.postos.erase(i)
 	sg.spr.clear()
 	sg.feat.clear()
@@ -484,6 +486,8 @@ func _dress(A: int) -> void:
 	if _rough_at(A + 95) > 0.25 and _rough_at(A + 94) <= 0.25 and town.is_empty() and not signed and not _near_stop(A, 30):
 		var w := "sign3" if road_id != "terra" else "placa_gado"   # ~2 s of warning at 100 km/h
 		sg.spr.append(_spr(w, 1.38, 1700.0, 4))
+	if g.crest_h_at(A + 70) == 0.0 and g.crest_h_at(A + 71) > 0.0 and not _near_stop(A, 30):   # a crest begins ahead: the yellow diamond warns ~2 s before
+		sg.spr.append(_spr("placa_lombada", 1.36 if signed else 1.3, 1000.0, 4, true))
 	if town.is_empty() and A >= 60:
 		_surface(A, i)
 

@@ -52,6 +52,7 @@ func _ready() -> void:
 	pause_label = LABEL[who]
 	g.menu.add_pause_item(pause_label, _cycle)
 	g.hole_hit.connect(func(_f, _side, k): _jolt(k > 0.7))
+	g.jumped.connect(func(_air, k): if k > 0.5: _jolt(k > 0.85))   # a real landing after a crest: a start, and it wakes whoever was dozing
 	g.bumped.connect(func(_kind): _jolt(true))
 	g.trip_started.connect(func():
 		slept = 0.0

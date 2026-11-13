@@ -1,1 +1,1 @@
-render fps (software renderer): 24.7
+render fps (software renderer): 32.1

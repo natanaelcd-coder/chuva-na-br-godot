@@ -33,12 +33,16 @@ const SKIES := {
 		{"top": "2a3560", "hor": "e89a7a", "hf": "6a4a7a", "hn": "1c2238", "gr": "14291f", "amb": 0.8}],
 }
 
+# Suspension, per car (game.gd, "suspension"): spring_k/spring_c are the body's bounce (frequency = sqrt(k) rad/s,
+# damping ratio = c / (2 sqrt(k))), pitch_* and roll_* the same for nose and lean; roll_gain how far it leans,
+# hole_gain how hard a pothole, a speed bump or a landing throws it. Firm enough to settle in about a second
+# (one visible swing), still an old car: the beetle floats, the pickup bounces quick and high, the GT sits flat.
 const CARS := {
 	"besouro": {
 		"name": "BESOURO 1973", "desc": "Motor atrás, molas macias, volante lento. Balança em tudo.",
 		"stats": [2, 4, 2],
 		"top": 100.0, "acc": 13.0, "brake": 34.0, "steer_rate": 6.0, "grip": 9.0, "curve_push": 0.14,
-		"spring_k": 46.0, "spring_c": 3.0, "pitch_k": 58.0, "pitch_c": 6.0, "roll_k": 36.0, "roll_c": 2.5, "roll_gain": 1.0, "hole_gain": 1.0,
+		"spring_k": 64.0, "spring_c": 4.6, "pitch_k": 80.0, "pitch_c": 9.0, "roll_k": 52.0, "roll_c": 7.5, "roll_gain": 1.0, "hole_gain": 1.0,
 		"gear_lo": [0.0, 16.0, 32.0, 52.0], "gear_hi": [16.0, 32.0, 52.0, 110.0], "eng_base": 0.9, "eng_span": 0.45,
 		"camh": 820.0, "cockpit": "cockpit", "player": "player",
 		"wheel_x": [-28.0, 19.0], "brake_x": 22.5, "brake_y": -17.0,
@@ -55,7 +59,7 @@ const CARS := {
 		"name": "PICAPE RURAL 1979", "desc": "Cabine alta, feixe de molas duro, direção pesada. Feita pra terra.",
 		"stats": [2, 2, 1],
 		"top": 95.0, "acc": 10.0, "brake": 30.0, "steer_rate": 4.5, "grip": 7.5, "curve_push": 0.15,
-		"spring_k": 72.0, "spring_c": 3.4, "pitch_k": 70.0, "pitch_c": 5.0, "roll_k": 30.0, "roll_c": 2.2, "roll_gain": 1.45, "hole_gain": 1.3,
+		"spring_k": 96.0, "spring_c": 4.9, "pitch_k": 95.0, "pitch_c": 8.0, "roll_k": 44.0, "roll_c": 5.6, "roll_gain": 1.45, "hole_gain": 1.4,
 		"gear_lo": [0.0, 20.0, 45.0], "gear_hi": [20.0, 45.0, 105.0], "eng_base": 0.72, "eng_span": 0.42,
 		"camh": 1050.0, "cockpit": "cockpit_picape", "player": "player_picape",
 		"wheel_x": [-30.0, 21.0], "brake_x": 26.5, "brake_y": -16.0,
@@ -72,7 +76,7 @@ const CARS := {
 		"name": "SEDÃ GT 1989", "desc": "Baixo, firme e rápido. Volante preciso e motor que gosta de giro.",
 		"stats": [5, 2, 5],
 		"top": 140.0, "acc": 18.0, "brake": 42.0, "steer_rate": 7.5, "grip": 11.0, "curve_push": 0.12,
-		"spring_k": 85.0, "spring_c": 7.0, "pitch_k": 80.0, "pitch_c": 8.0, "roll_k": 55.0, "roll_c": 5.0, "roll_gain": 0.6, "hole_gain": 0.8,
+		"spring_k": 110.0, "spring_c": 10.5, "pitch_k": 120.0, "pitch_c": 13.0, "roll_k": 80.0, "roll_c": 11.5, "roll_gain": 0.7, "hole_gain": 0.8,
 		"gear_lo": [0.0, 20.0, 40.0, 65.0, 95.0], "gear_hi": [20.0, 40.0, 65.0, 95.0, 150.0], "eng_base": 1.0, "eng_span": 0.55,
 		"camh": 700.0, "cockpit": "cockpit_gt", "player": "player_gt",
 		"wheel_x": [-29.0, 20.0], "brake_x": 20.0, "brake_y": -15.0,
@@ -89,6 +93,9 @@ const CARS := {
 
 # lanes: positions across the road (-1..1). "ours": lanes the player's direction uses, left to right.
 # A two-way road has oncoming traffic on the road itself, so overtaking means using their lane.
+# crest_*: natural humps of the road (game.gd, crest_h_at): one every ~crest_gap segments, crest_h units high and
+# crest_len segments long. Taken fast they throw the car in the air; the longer and lower, the faster you need to be
+# (dirt road ~55 km/h, BR ~65, expressway ~105).
 const ROADS := {
 	"terra": {
 		"name": "ESTRADA DO SÍTIO", "desc": "Terra batida entre cafezais e porteiras. Mão dupla: ultrapasse olhando.",
@@ -96,7 +103,7 @@ const ROADS := {
 		"track": [[60, 0, 0], [90, 2.4, 10], [60, -3.2, -8], [80, 0, 16], [100, 3.6, -12], [60, -2.0, 0], [120, 0, 20], [80, -3.8, -24],
 			[60, 2.8, 10], [100, 0, -14], [90, 3.4, 18], [70, -3.0, -10], [120, 0, 0], [80, 2.2, 26], [60, -3.6, -20], [100, 0, 8],
 			[90, -2.6, -12], [80, 3.2, 6], [120, 0, 0]],
-		"undulation": 1.4, "rough_base": 0.55, "noise": 1.6, "hole_gap": 10, "hole_p": 0.006, "hole_k": 0.02, "patch_p": 0.25, "puddle_p": 0.35,
+		"undulation": 1.4, "rough_base": 0.55, "noise": 1.6, "hole_gap": 10, "hole_p": 0.006, "hole_k": 0.02, "patch_p": 0.25, "puddle_p": 0.35, "crest_gap": 330, "crest_h": 135.0, "crest_len": 16,
 		"stop": "venda", "stop_sign": "placa_venda", "stop_ww": 4400.0,
 	},
 	"br": {
@@ -104,7 +111,7 @@ const ROADS := {
 		"lanes": [-0.667, 0.0, 0.667], "ours": [0, 1, 2], "roadw": 2000.0, "two_way": false, "median": "rail", "surface": "asfalto",
 		"track": [[80, 0, 0], [160, 1.6, 12], [120, 0, -10], [140, -2.2, 0], [100, 0, 22], [180, 2.6, -14], [220, 0, 0], [120, -1.4, 18], [120, 1.4, -18],
 			[160, 0, 10], [200, -2.8, -20], [140, 0, 0], [160, 2, 26], [120, 0, -16], [200, -1.8, 0], [240, 0, 8], [160, 3, -10], [140, -3, 10], [200, 0, 0]],
-		"undulation": 1.0, "rough_base": 0.0, "noise": 1.0, "hole_gap": 20, "hole_p": 0.001, "hole_k": 0.008, "patch_p": 0.3, "puddle_p": 0.2,
+		"undulation": 1.0, "rough_base": 0.0, "noise": 1.0, "hole_gap": 20, "hole_p": 0.001, "hole_k": 0.008, "patch_p": 0.3, "puddle_p": 0.2, "crest_gap": 640, "crest_h": 150.0, "crest_len": 20,
 		"stop": "posto", "stop_sign": "sign_posto", "stop_ww": 5600.0,
 	},
 	"expressa": {
@@ -112,7 +119,7 @@ const ROADS := {
 		"lanes": [-0.75, -0.25, 0.25, 0.75], "ours": [0, 1, 2, 3], "roadw": 2600.0, "two_way": false, "median": "jersey", "surface": "concreto",
 		"track": [[120, 0, 0], [240, 1.2, 6], [200, 0, -4], [260, -1.6, 0], [300, 0, 8], [220, 1.8, -6], [260, 0, 0], [240, -1.2, 10],
 			[300, 0, -10], [220, 1.4, 0], [280, 0, 6], [240, -1.8, -8], [300, 0, 0]],
-		"undulation": 0.35, "rough_base": 0.0, "noise": 0.4, "hole_gap": 60, "hole_p": 0.0004, "hole_k": 0.002, "patch_p": 0.05, "puddle_p": 0.12,
+		"undulation": 0.35, "rough_base": 0.0, "noise": 0.4, "hole_gap": 60, "hole_p": 0.0004, "hole_k": 0.002, "patch_p": 0.05, "puddle_p": 0.12, "crest_gap": 1700, "crest_h": 95.0, "crest_len": 26,
 		"stop": "parada", "stop_sign": "placa_parada", "stop_ww": 6000.0,
 	},
 }

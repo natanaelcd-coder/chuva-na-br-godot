@@ -46,6 +46,7 @@ signal hole_missed(f: Dictionary, d: float)         # a pothole passed under the
 signal puddle_hit(f: Dictionary)
 signal bumped(kind: String)                         # "rear", "side", "oncoming", "rail"
 signal refueled(stop_i: int)
+signal jumped(air_s: float, k: float)               # the car landed after flying off a crest: seconds in the air, how hard (0..1)
 var features: Array = []
 var store := ConfigFile.new()   # one save file for everything (user://viagem.cfg); use store_get/store_set
 var km_trip := 0.0              # km driven since the player took the wheel
@@ -99,9 +100,21 @@ var sky := 0.0
 var t := 0.0
 var save_t := 0.0
 
-# suspension: body height, pitch and roll on soft, lightly damped springs
+# suspension: body height, pitch and roll on springs that settle in about a second (per car, catalog.gd)
+# pitch > 0: nose up (the world sinks in the windscreen, the tail squats in the chase view)
+# roll > 0: leaning to the right, i.e. out of a left-hand bend (the world turns anticlockwise in the windscreen)
+const GRAV := 7000.0   # units/s2 pulling the car back down when a crest throws it in the air
 var zb := 0.0
 var zb_v := 0.0
+var zw := 0.0        # height of the wheels: the road, except during a jump
+var zw_v := 0.0
+var air := false     # wheels off the ground
+var air_t := 0.0
+var land_t := 0.0    # counts down after a landing (dust, spray)
+var land_k := 0.0    # how hard that landing was, 0..1
+var n_jumps := 0
+var CREST := PackedFloat32Array()   # height each segment owes to a crest (already included in Y)
+var _crest_at := {}                 # block -> absolute start segment of its crest (-1: none)
 var zr := 0.0
 var zr_prev := 0.0
 var cy := 0.0
@@ -287,6 +300,11 @@ func setup() -> void:
 	zr_prev = zb
 	cy = zb
 	zb_v = 0.0
+	zw = zb
+	zw_v = 0.0
+	air = false
+	land_t = 0.0
+	n_jumps = 0
 	pitch = 0.0
 	pitch_v = 0.0
 	roll = 0.0
@@ -301,6 +319,12 @@ func _view_for(c: int) -> Dictionary:
 	if c == 0:
 		vw.camh = car.camh   # seat height: the pickup sits high, the GT sits low
 	return vw
+
+# chase view, for a car drawn at scale k: how far above the road line the wheels (x) and the body (y) sit, in screen units
+func lift_px(k: float) -> Vector2:
+	var q: float = k * 64.0 / (1000.0 * W / 2.0) * view.hh
+	var w := maxf(0.0, zw - zr) * q
+	return Vector2(w, w + clampf((zb - zw) * q, -5.0 * k, 6.0 * k))
 
 func nearest_lane(x: float) -> int:
 	var best := 0
@@ -512,6 +536,9 @@ func _build_surface() -> void:
 	Y.resize(N)
 	ROUGH.resize(N)
 	NOISE.resize(N)
+	CREST.resize(N)
+	CREST.fill(0.0)
+	_crest_at.clear()
 	var zone := PackedFloat32Array()
 	zone.resize(N)
 	var und: float = road.undulation
@@ -538,6 +565,50 @@ func _build_surface() -> void:
 			var fw := randf_range(0.16, 0.3)
 			for q in [[-2, 0.3, 0.8], [-1, 0.8, 1.0], [0, 1.0, 0.9], [1, 0.9, 0.35]]:
 				segs[posmod(i + q[0], N)].feat.append({"t": 2, "x": fx, "w": fw, "a": q[1], "b": q[2]})
+	for i in N:
+		crest_dress(i)
+
+# Crests: natural humps of the road, one per stretch of road.crest_gap segments, on a straight. Where each one sits
+# depends only on the trip seed and on the absolute segment (laps * N + i), so every lap brings them somewhere else
+# and scripts/features/estrada.gd can re-dress the road behind the car with the same function.
+func crest_start(b: int) -> int:
+	if _crest_at.has(b):
+		return _crest_at[b]
+	var gap: int = road.get("crest_gap", 0)
+	var L: int = road.get("crest_len", 0)
+	var at := -1
+	if gap > L + 140:
+		for n in 4:   # a few tries to find a straight piece
+			var a0: int = b * gap + 90 + absi([b, n, trip_seed, cfg.road].hash()) % (gap - L - 120)
+			var ok := true
+			for k in range(-6, L + 14):   # room to take off and to land in a straight line
+				if absf(segs[posmod(a0 + k, N)].curve) > 0.05:
+					ok = false
+					break
+			if ok:
+				at = a0
+				break
+	_crest_at[b] = at
+	return at
+
+func crest_h_at(A: int) -> float:
+	var gap: int = road.get("crest_gap", 0)
+	if gap <= 0 or A < 0:
+		return 0.0
+	var a0 := crest_start(int(A / float(gap)))
+	var L: int = road.crest_len
+	if a0 < 0 or A <= a0 or A >= a0 + L:
+		return 0.0
+	return road.crest_h * 0.5 * (1.0 - cos(TAU * (A - a0) / L))
+
+func crest_dress(A: int) -> void:
+	var i := A % N
+	var h := crest_h_at(A)
+	if h != CREST[i]:
+		Y[i] += h - CREST[i]
+		CREST[i] = h
+		segs[i].y1 = Y[i]
+		segs[posmod(i - 1, N)].y2 = Y[i]
 
 func road_y(z: float, rough := 0.0) -> float:
 	z = fposmod(z, TRACK)
@@ -863,7 +934,7 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 		var k := (0.5 + sp) * (0.75 + 5.0 * clampf(f.w - 0.07, 0.0, 0.05)) * (1.3 if side == 0.0 else 1.0)   # bigger hole, harder hit; both wheels, harder still
 		zb_v += 500.0 * k * car.hole_gain
 		roll_v += side * 0.36 * k * car.hole_gain
-		pitch_v += 0.7 * minf(k, 1.35)
+		pitch_v -= 0.7 * minf(k, 1.35)   # the nose drops into it, then comes back up
 		vx += side * 0.25 * k / 1.45   # the wheel is yanked toward the hole
 		aqua = maxf(aqua, 0.2)         # a moment with loose grip and no lane magnet
 		kick = side * 0.4 if side != 0.0 else randf_range(-0.25, 0.25)
@@ -873,6 +944,7 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 		clean = maxf(0.0, clean - 8.0)
 		n_holes += 1
 		hole_hit.emit(f, side, k)
+		sfx["hole"].pitch_scale = 1.0
 		sfx["hole"].volume_db = linear_to_db(0.35 + 0.65 * clampf(k / 1.45, 0.0, 1.0))
 		_sfx("hole")
 		if started and hud.toast_t <= 0.0:
@@ -891,16 +963,48 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 	elif f.t == 3:   # speed bump: the body is lifted, the nose pitches, then the springs float it back down
 		var kb := clampf(sp, 0.15, 1.4)
 		zb_v += (150.0 + 520.0 * kb) * car.hole_gain
-		pitch_v -= 0.35 * kb
+		pitch_v += 0.35 * kb   # front wheels climb first: nose up
 		roll_v += randf_range(-0.05, 0.05) * kb
 		bob_v += 6.0 + 10.0 * kb
 		dice_v += randf_range(-2, 2) * kb
 		if sp > 0.5:
 			v = maxf(0.0, v - 4.0 * sp)
+			sfx["hole"].pitch_scale = 1.0
 			sfx["hole"].volume_db = linear_to_db(0.25 + 0.4 * clampf(sp, 0.0, 1.0))
 			_sfx("hole")
 			if started:
 				hud.notice("LOMBADA! NA CIDADE, DEVAGAR", 3.0)
+
+# touchdown after a jump: the springs swallow it, a thud and a puff of dust as big as the fall. Nothing is lost.
+func _land(zr_v: float) -> void:
+	air = false
+	if air_t < 0.07:   # a skip of a frame or two is not a jump
+		return
+	var k := clampf((zr_v - zw_v) / 1700.0, 0.2, 1.0)
+	# the longer the flight, the more of the fall the springs have to swallow (tyres and bump stops take the rest)
+	zb_v = zr_v - clampf((zr_v - zb_v) * (0.15 + 1.2 * minf(air_t, 0.45)), 60.0, 800.0) * car.hole_gain
+	pitch_v -= 0.4 * k   # the nose dips as the front lands
+	roll_v += randf_range(-0.08, 0.08) * k
+	kick = randf_range(-0.2, 0.2) * k
+	bob_v += 8.0 + 10.0 * k
+	dice_v += randf_range(-2, 2) * k
+	land_t = 0.6
+	land_k = k
+	n_jumps += 1
+	sfx["hole"].pitch_scale = 0.7   # a deeper thud than a pothole
+	sfx["hole"].volume_db = linear_to_db(0.2 + 0.55 * k)
+	_sfx("hole")
+	if cam == 1 and has_car_scr and wet_k > 0.35:   # wet road: both wheels throw a little spray
+		for i in int(10 + 20 * k):
+			var side := -1.0 if i % 2 else 1.0
+			parts.append([car_scr.x + side * randf_range(18, 30) * car_scr.z, car_scr.y - randf_range(0, 4), side * randf_range(30, 90), randf_range(-90, -30), randf_range(0.3, 0.6)])
+	if started:
+		score += 100.0 * mult * k   # a small treat, never a penalty
+		if n_jumps == 1:
+			hud.notice("UPA! A CRISTA TIROU O CARRO DO CHÃO. DEVAGAR, ELA SÓ BALANÇA", 4.0)
+		elif air_t >= 0.3:
+			hud.notice("NO AR: %s s" % ("%.1f" % air_t).replace(".", ","), 2.0)
+	jumped.emit(air_t, k)
 
 # autopilot: weigh potholes, puddles and slower cars over the next ~1.6 s in each lane
 func _danger(l: int, bi: int) -> float:
@@ -1031,6 +1135,9 @@ func _process(dt: float) -> void:
 	off_t = off_t + dt if off else 0.0
 	if off_t > 0.4:   # a wheel over the line for a moment is not leaving the road
 		tgt = minf(tgt, 30.0)
+	var on_rail: bool = walled and px <= -1.04
+	if on_rail:   # held against the guard rail: it scrubs speed (through the cruise target, or the cruise would refill it)
+		tgt = minf(tgt, maxf(30.0, v - 12.0 * dt))
 	var close := false
 	if started:   # cruise control (and the autopilot) yields to the car ahead instead of ramming it
 		for c in cars:
@@ -1090,10 +1197,12 @@ func _process(dt: float) -> void:
 			hold_x = clampf(px, LANES[lane] - 0.2, LANES[lane] + 0.2)
 	prev_input = dir if not is_auto else 0.0
 	var rate: float = car.steer_rate if absf(dir) > absf(steer) else car.steer_rate * 2.0   # quick to centre, a little slower to turn in
+	if air:
+		rate *= 1.5   # nothing pushes back on the wheel in the air
 	steer += clampf(dir - steer, -dt * rate, dt * rate)
 	aqua = maxf(0.0, aqua - dt)
 	splash_t = maxf(0.0, splash_t - dt)
-	var grip := (1.0 - 0.3 * rain * sp) * (0.3 if aqua > 0.0 else 1.0)
+	var grip := (1.0 - 0.3 * rain * sp) * (0.3 if aqua > 0.0 else 1.0) * (0.2 if air else 1.0)   # in the air the car keeps the line it left with
 	var vx0 := vx
 	vx += (steer * 1.0 * minf(1.0, sp * 2.5) - vx) * minf(1.0, dt * car.grip * grip)
 	if dir == 0.0 and not is_auto and aqua <= 0.0 and (px < 1.02 if walled else absf(px) < 1.02):
@@ -1120,8 +1229,6 @@ func _process(dt: float) -> void:
 			bumped.emit("rail")
 		px = -1.06
 		vx = maxf(vx, 0.0)
-	if walled and px <= -1.04:   # holding it against the rail scrubs speed
-		v = maxf(0.0, v - 12.0 * dt)
 	if px > 1.7:
 		px = 1.7
 		vx = minf(vx, 0.0)
@@ -1138,8 +1245,9 @@ func _process(dt: float) -> void:
 	if cur_i != prev_i:
 		var i := (prev_i + 1) % N
 		for n in 4:
-			for f in segs[i].feat:
-				_hit_feat(f, sp)
+			if not air:   # a jump clears whatever is on the road
+				for f in segs[i].feat:
+					_hit_feat(f, sp)
 			seg_passed.emit(i)
 			if postos.has(i):
 				if px > LANES.back() - 0.42:
@@ -1155,24 +1263,56 @@ func _process(dt: float) -> void:
 				break
 			i = (i + 1) % N
 
-	# suspension: the body floats over the undulations and takes a while to settle
+	# suspension: the wheels follow the road, or fly a short arc off a crest taken fast; the body rides its springs above them
 	var rough := 1.7 if off else ((1.3 if px > 0.33 else (0.6 if px < -0.33 else 1.0)) if cfg.road == "br" else 1.0)
 	zr = road_y(pos, rough)
 	var zr_v := (zr - zr_prev) / maxf(dt, 0.001)
 	if absf(zr_v) > 5000.0:
 		zr_v = 0.0
 	zr_prev = zr
-	zb_v += (-car.spring_k * (zb - zr) - car.spring_c * (zb_v - zr_v)) * dt
-	zb = clampf(zb + zb_v * dt, zr - 240.0, zr + 240.0)
+	land_t = maxf(0.0, land_t - dt)
+	if air and absf(zw - zr) > 900.0:   # moved somewhere else (a test, a new trip)
+		air = false
+	if not air:
+		zw = zr
+		zw_v = zr_v
+		var u := v * UPK
+		if CREST[cur_i] > 0.0 and u > 0.0:
+			var y0 := road_y(pos)
+			var ya := road_y(pos + SEG)
+			var yb := road_y(pos - SEG)
+			if (ya - 2.0 * y0 + yb) / (SEG * SEG) * u * u < -GRAV:   # the road drops away faster than the wheels can fall
+				air = true
+				air_t = 0.0
+				zw_v = (ya - yb) / (2.0 * SEG) * u
+				pitch_v += 0.2   # the nose lifts as it goes
+				bob_v -= 6.0
+	else:
+		air_t += dt
+		zw_v -= GRAV * dt
+		zw += zw_v * dt
+		if zw <= zr:
+			zw = zr
+			if air_t < 0.05 and CREST[cur_i] > 0.0:   # still leaving the ground
+				zw_v = maxf(zw_v, zr_v)
+			else:
+				_land(zr_v)
+				zw_v = zr_v
+	# in the air body and wheels fall together and the wheels hang a little lower (the springs stretch)
+	zb_v += (-car.spring_k * (zb - zw - (22.0 if air else 0.0)) - car.spring_c * (zb_v - zw_v) - (GRAV if air else 0.0)) * dt
+	zb = clampf(zb + zb_v * dt, zw - 240.0, zw + 240.0)
 	cy += (zr - cy) * minf(1.0, dt * 3.0)
 	if absf(zr - cy) > 700.0:
 		cy = zr
 	var sl := (road_y(pos + 700.0) - road_y(pos - 700.0)) / 1400.0
 	slope += (sl - slope) * minf(1.0, dt * 1.6)
-	var pt := (0.025 + 0.015 * sp) * tanh((sl - slope) / 0.05) - clampf((v - v0) / maxf(dt, 0.001), -40.0, 20.0) * 0.0011
+	# the nose rises into a climb and under power, and dives under braking
+	var pt := (0.025 + 0.015 * sp) * tanh((sl - slope) / 0.05) + clampf((v - v0) / maxf(dt, 0.001), -40.0, 20.0) * 0.0011
 	pitch_v += (-car.pitch_k * (pitch - pt) - car.pitch_c * pitch_v) * dt
 	pitch = clampf(pitch + pitch_v * dt, -0.12, 0.12)
-	var rt := -clampf((al * 0.013 + curve * sp * sp * 0.024) * car.roll_gain, -0.14, 0.14)
+	# the body leans away from the lateral acceleration: out of the bend, and against each half of a lane change
+	# (a hard flick of the wheel does not throw it further than a firm one: the lean going in and coming back match)
+	var rt := 0.0 if air else -clampf((4.0 * tanh(al / 4.0) * 0.018 + curve * sp * sp * 0.024) * car.roll_gain, -0.14, 0.14)
 	roll_v += (-car.roll_k * (roll - rt) - car.roll_c * roll_v + (randf_range(-3, 3) * sp if off else 0.0)) * dt
 	roll = clampf(roll + roll_v * dt, -0.16, 0.16)
 	cam_x += (px - cam_x) * minf(1.0, dt * 2.4)
@@ -1184,8 +1324,9 @@ func _process(dt: float) -> void:
 			hud.toast("NA RESERVA: POSTO NA FAIXA DA DIREITA", 4.0)
 		if not off and v > 20.0:
 			clean += dt
-		elif off_t > 0.4:
-			clean = 0.0
+		elif off_t > 0.4 and int(off_t / 0.4) > int((off_t - dt) / 0.4):   # on the grass: one step of the multiplier every 0.4 s, like any other slip
+			mult = maxi(1, mult - 1)
+			clean = minf(clean, (mult - 1) * 25.0)
 		var m := 1 + mini(3, int(clean / 25.0))
 		if m > mult:
 			hud.toast("DIREÇÃO SUAVE  x%d" % m)
@@ -1352,7 +1493,7 @@ func _process(dt: float) -> void:
 		for gi in range(1, GEAR_LO.size()):
 			if v >= GEAR_LO[gi] - early:
 				cand = gi
-		var outside: bool = v < GEAR_LO[gear_i] - early - 0.5 or v > GEAR_HI[gear_i] + 0.5
+		var outside: bool = v < GEAR_LO[gear_i] - 8.5 or v > GEAR_HI[gear_i] + 0.5   # fixed hysteresis going down: braking behind a car does not hunt gears
 		if cand != gear_i:
 			gear_cand_t += dt
 			if gear_cand_t > 0.5 or outside:
@@ -1360,17 +1501,17 @@ func _process(dt: float) -> void:
 				gear_cand_t = 0.0
 		else:
 			gear_cand_t = 0.0
-		var g_lo: float = GEAR_LO[gear_i]
+		var g_lo: float = GEAR_LO[gear_i] - (8.0 if gear_i > 0 else 0.0)   # revs count from where the gear can really come in
 		var g_hi: float = GEAR_HI[gear_i]
 		var rpm := clampf((v - g_lo) / (g_hi - g_lo), 0.0, 1.0)
-		a_engine.pitch_scale = lerpf(a_engine.pitch_scale, car.eng_base + car.eng_span * rpm, minf(1.0, dt * 8.0))
+		a_engine.pitch_scale = lerpf(a_engine.pitch_scale, (car.eng_base + car.eng_span * rpm) * (1.08 if air else 1.0), minf(1.0, dt * (20.0 if air else 8.0)))   # wheels in the air: the revs flare
 		if g_lo != last_gear_lo:
 			if g_lo > last_gear_lo and last_gear_lo >= 0.0:
 				pitch_v -= 0.15   # small lurch of the body on the upshift
 			last_gear_lo = g_lo
-		a_rumble.volume_db = linear_to_db(maxf(0.0001, ((rough - 0.6) * 0.04 + ROUGH[int(pos / SEG) % N] * 0.10) * sp + (0.1 if off else 0.0)))
+		a_rumble.volume_db = linear_to_db(maxf(0.0001, 0.0 if air else ((rough - 0.6) * 0.04 + ROUGH[int(pos / SEG) % N] * 0.10) * sp + (0.1 if off or on_rail else 0.0)))   # no tyre noise in the air; the rail growls for as long as you lean on it
 		a_rumble.pitch_scale = 0.8 + 0.4 * sp
-		a_hiss.volume_db = linear_to_db(maxf(0.0001, clampf(absf(curve * sp * sp) * 0.04 + aqua * 0.12 + rain * sp * 0.015, 0.0, 0.15)))
+		a_hiss.volume_db = linear_to_db(maxf(0.0001, 0.0 if air else clampf(absf(curve * sp * sp) * 0.04 + aqua * 0.12 + rain * sp * 0.015, 0.0, 0.15)))
 		if off:
 			kick += randf_range(-0.05, 0.05)
 

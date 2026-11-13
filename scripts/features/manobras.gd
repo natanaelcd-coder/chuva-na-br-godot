@@ -225,9 +225,7 @@ func draw_world_over(w) -> void:
 	var sx: float = g.car_scr.x
 	var sy: float = g.car_scr.y
 	var k: float = g.car_scr.z
-	var s := k * 64.0 / (1000.0 * 192.0)
-	var e: float = clampf((g.zb - g.zr) * s * g.view.hh, -5.0 * k, 6.0 * k)
-	var p := Vector2(sx + g.vx * 2.5 * k + blink * (g.car.brake_x + 4.0) * k, sy - 6.0 * k - e + g.pitch * 42.0 * k + g.car.brake_y * k)
+	var p: Vector2 = w.body_at(sx, sy, k) + Vector2(blink * (g.car.brake_x + 4.0) * k, g.car.brake_y * k).rotated(w.body_tilt())   # on the body, wherever it leans or jumps
 	w.draw_circle(p, 2.2 * k, Color("ffc04a"))
 	w._glow(p.x, p.y, 10.0 * k, Color(1.0, 0.7, 0.2), 0.8)
 

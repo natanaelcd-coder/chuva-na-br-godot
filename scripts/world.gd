@@ -162,29 +162,47 @@ func _sun_moon(hy: float, night: float) -> void:
 		draw_circle(Vector2(mx + 2.0, my - 1.0), 1.4, Color(0.75, 0.78, 0.85, night))
 		draw_circle(Vector2(mx - 2.0, my + 2.0), 1.0, Color(0.75, 0.78, 0.85, night))
 
+# chase view: the body turns about its axle line; negative = roof to the left (the body leans left, out of a right-hand bend)
+func body_tilt() -> float:
+	return g.roll * 2.4
+
+# where the body sprite hangs: lifted by springs and jumps, squatting or diving with the pitch, and swaying
+# over its wheels to the side it leans to
+func body_at(sx: float, sy: float, k: float) -> Vector2:
+	return Vector2(sx + g.roll * 26.0 * k, sy - 6.0 * k - g.lift_px(k).y + g.pitch * 42.0 * k)
+
 func _draw_player(sx: float, sy: float, s: float) -> void:
-	var hh: float = g.view.hh
 	var k := s * 1000.0 * W / 2.0 / 64.0
-	var e: float = clampf((g.zb - g.zr) * s * hh, -5.0 * k, 6.0 * k)
+	var up: float = g.lift_px(k).x   # wheels off the road during a jump
 	g.car_scr = Vector3(sx, sy, k)
 	g.has_car_scr = true
-	_glow(sx, sy - 46.0 * k, 105.0 * k, LIGHT, 0.2)
-	draw_set_transform(Vector2(sx, sy - k), 0.0, Vector2(31.0 * k, 4.0 * k))
-	draw_circle(Vector2.ZERO, 1.0, Color(0, 0, 0, 0.5))
+	_glow(sx, sy - 46.0 * k - up, 105.0 * k, LIGHT, 0.2)
+	var sh := 1.0 - minf(0.45, up / (26.0 * k))   # the shadow stays on the road and shrinks as the car leaves it
+	draw_set_transform(Vector2(sx, sy - k), 0.0, Vector2(31.0 * k * sh, 4.0 * k * sh))
+	draw_circle(Vector2.ZERO, 1.0, Color(0, 0, 0, 0.5 * sh))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var car: Dictionary = g.car
 	if g.road.surface == "terra" and g.wet_k < 0.15 and g.v > 15.0:
 		for i in 3:
-			_dust(sx + (i - 1) * 24.0 * k, sy - 4.0 * k, 34.0 * k * (0.6 + g.v / 140.0), 0.9)
-	for wx in car.wheel_x:   # wheels stay on the road; the body rides above them
-		draw_rect(Rect2(sx + wx * k, sy - 7.0 * k, 9.0 * k, 7.0 * k), Color("05070c"))   # top tucked behind the bumper
-		draw_rect(Rect2(sx + (wx + 1.0) * k, sy - 7.0 * k, 7.0 * k, 2.0 * k), Color("2a2c33"))   # wet tyre catching the light
+			_dust(sx + (i - 1) * 24.0 * k, sy - 4.0 * k, 34.0 * k * (0.6 + g.v / 140.0), 0.9 if up < 1.0 else 0.25)
+	if g.land_t > 0.0 and g.wet_k < 0.15:   # touchdown: a puff from each wheel, red earth on the dirt road, a grey wisp on tarmac
+		var terra: bool = g.road.surface == "terra"
+		var a: float = g.land_t / 0.6
+		var keep := dust_c
+		if not terra:
+			dust_c = Color(0.62, 0.62, 0.64)
+		for side in [-1.0, 1.0]:
+			_dust(sx + side * (26.0 + 14.0 * (1.0 - a)) * k, sy - 3.0 * k, (30.0 + 50.0 * g.land_k * (1.0 - a * 0.5)) * k * (1.0 if terra else 0.55), a * (2.2 if terra else 1.2))
+		dust_c = keep
+	for wx in car.wheel_x:   # wheels stay on the road (or leave it together in a jump); the body rides above them
+		draw_rect(Rect2(sx + wx * k, sy - 7.0 * k - up, 9.0 * k, 7.0 * k), Color("05070c"))   # top tucked behind the bumper
+		draw_rect(Rect2(sx + (wx + 1.0) * k, sy - 7.0 * k - up, 7.0 * k, 2.0 * k), Color("2a2c33"))   # wet tyre catching the light
 		for tx in [1.5, 4.5, 7.0]:
-			draw_rect(Rect2(sx + (wx + tx) * k, sy - 5.0 * k, 0.5, 4.0 * k), Color("2a2c33"))
+			draw_rect(Rect2(sx + (wx + tx) * k, sy - 5.0 * k - up, 0.5, 4.0 * k), Color("2a2c33"))
 	var bx0: float = car.brake_x
 	_reflect(sx - bx0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.12))
 	_reflect(sx + bx0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.12))
-	draw_set_transform(Vector2(sx + g.vx * 2.5 * k, sy - 6.0 * k - e + g.pitch * 42.0 * k), g.roll * 1.9, Vector2.ONE)
+	draw_set_transform(body_at(sx, sy, k), body_tilt(), Vector2.ONE)
 	draw_texture_rect(player_tex if player_tex else g.tex[car.player], Rect2(-32.0 * k, -44.0 * k, 64.0 * k, 46.0 * k), false)
 	g.feature_call("draw_player", [self, k])   # features: stickers on the body (sprite unit (u, v) is at ((u - 32) k, (v - 44) k))
 	if g.brake:
@@ -307,6 +325,9 @@ func _draw() -> void:
 		var alt: bool = (int(sg.i / 3.0) & 1) == 1
 		var hgt := asy - bsy + 0.5
 		var rc := road1 if alt else road0
+		var crest_d: float = g.CREST[(sg.i + 1) % n_seg] - g.CREST[sg.i]
+		if crest_d != 0.0:   # a crest reads from afar: its near face catches the light, the far one falls in shade
+			rc = rc.lerp(Color.WHITE, minf(crest_d / 25.0, 1.0) * 0.12) if crest_d > 0.0 else rc.lerp(Color.BLACK, minf(-crest_d / 25.0, 1.0) * 0.2)
 		var band_y := roundf(bsy * 2.0) / 2.0   # whole half-units, so neighbouring bands meet without overlapping
 		var band_h := roundf(asy * 2.0) / 2.0 - band_y
 		draw_rect(Rect2(X0, band_y, XW, band_h), grass if alt else grass2)

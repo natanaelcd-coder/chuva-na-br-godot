@@ -17,6 +17,7 @@ and talks to the rest only through the points below. Keep features self-containe
 | `puddle_hit(f)` | splash |
 | `bumped(kind)` | `"rear"`, `"side"`, `"oncoming"`, `"rail"` |
 | `refueled(stop_i)` | filled up at a stop |
+| `jumped(air_s, k)` | the car landed after flying off a crest: seconds in the air, how hard it came down (0..1) |
 
 ## Methods a feature may implement (called if present)
 
@@ -43,7 +44,7 @@ Draw with the node passed in (`world.draw_rect(...)`, `cockpit.draw_circle(...)`
   helpers `g.menu.label(txt, size, color, pos, parent)` and `g.menu.box(rect, color, parent)`.
 - HUD: `g.hud.toast(text, dur)` (big, centre: use rarely), `g.hud.notice(text, dur)` (discreet line), `g.hud.set_now(text)` (radio strip).
 - State you can read: `g.state` (`menu|drive|pause`), `g.started`, `g.cfg`, `g.car`, `g.road`, `g.v`, `g.px`, `g.pos`, `g.tday`, `g.rain`,
-  `g.km_trip`, `g.trip_time`, `g.cars`, `g.segs`, `g.N`, `g.SEG`, `g.LANES`. Comfort: `g.view_sway` scales view roll/pitch,
+  `g.km_trip`, `g.trip_time`, `g.air` (wheels off the ground), `g.n_jumps`, `g.cars`, `g.segs`, `g.N`, `g.SEG`, `g.LANES`. Comfort: `g.view_sway` scales view roll/pitch,
   `g.view_shake` the inside camera's bounce. Trip seed: `g.trip_seed` (what `setup()` drew the road/traffic with; 0 in tests);
   set `g.next_seed` before `g.setup()` to rebuild a given trip. The trip code is `get_node("../codigo").current()`, and
   `summary.code` / `summary.manobras` are added to `trip_ended`'s summary.

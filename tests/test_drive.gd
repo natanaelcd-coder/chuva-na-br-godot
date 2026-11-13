@@ -104,10 +104,21 @@ func lane_change(v: float) -> Dictionary:
 	var min_px := 1.0
 	var released := false
 	var roll_peak := 0.0
+	var roll_in := 0.0     # lean while turning in (signed: > 0 is to the right, the outside of this move to the left)
+	var roll_out := 0.0    # lean the other way while straightening up
+	var roll_swings := 0
+	var roll_sign := 0.0
 	g.bot_steer = -1.0
 	for i in 360:
 		await process_frame
 		t += DT
+		if not released:
+			roll_in = g.roll if absf(g.roll) > absf(roll_in) else roll_in
+		else:
+			roll_out = minf(roll_out, g.roll)
+			if absf(g.roll) > 0.012 and signf(g.roll) != roll_sign:
+				roll_swings += 1
+				roll_sign = signf(g.roll)
 		if t_move < 0.0 and g.px < 0.637:
 			t_move = t
 		if not released and g.px <= 0.1:
@@ -127,7 +138,8 @@ func lane_change(v: float) -> Dictionary:
 		if v == 70.0 and shots and i == 30 and g.cam == 0:
 			pass
 	var res := {"speed_kmh": v, "response_delay_s": r3(t_move), "time_to_target_s": r3(t_reach),
-		"overshoot_road": r3(maxf(0.0, -min_px)), "settle_s": r3(t_settle), "roll_peak_rad": r3(roll_peak)}
+		"overshoot_road": r3(maxf(0.0, -min_px)), "settle_s": r3(t_settle), "roll_peak_rad": r3(roll_peak),
+		"roll_turn_in_rad": r3(roll_in), "roll_straighten_rad": r3(roll_out), "roll_swings_after_release": roll_swings}
 	await drop()
 	return res
 
@@ -240,6 +252,49 @@ func pothole_response(v: float) -> Dictionary:
 	var res = {"speed_kmh": v, "body_peak_units": r3(peak), "body_peak_screen_px": r3(peak * g.view.hh * 0.84 / 900.0 * 2.0),
 		"settle_s": r3(settle), "oscillations": crossings / 2.0, "roll_peak_rad": r3(roll_peak), "pitch_peak_rad": r3(pitch_peak),
 		"pitch_peak_screen_px": r3(pitch_peak * 190.0 * 2.0), "lateral_kick_peak_road": r3(kick_peak), "speed_lost_peak_kmh": r3(v - v_min)}
+	await drop()
+	return res
+
+# A crest of the road at speed v: does the car leave the ground, for how long, and what does the landing do?
+func jump(v: float) -> Dictionary:
+	await make(1, true)
+	var ci := -1
+	for i in g.N:
+		if g.CREST[i] > 0.0 and g.CREST[posmod(i - 1, g.N)] == 0.0:
+			ci = i
+			break
+	for i in g.N:   # nothing but the crests, so hills and washboard do not pollute the numbers
+		g.Y[i] = g.CREST[i]
+		g.segs[i].y1 = g.Y[i]
+		g.segs[posmod(i - 1, g.N)].y2 = g.Y[i]
+	place(ci - 40, 0.0, v)
+	g.set_auto(false)
+	var air_t := 0.0
+	var h := 0.0
+	var squash := 0.0
+	var pitch_peak := 0.0
+	var px_off := 0.0
+	var v_min := v
+	var settle_i := 0
+	var land_i := -1
+	for i in int(80.0 * g.SEG / (v * g.UPK) / DT) + 150:
+		await process_frame
+		v_min = minf(v_min, g.v)
+		if g.air or (land_i >= 0 and i - land_i < 40):   # only the jump itself: the road bends further on
+			px_off = maxf(px_off, absf(g.px))
+		if g.air:
+			air_t += DT
+			h = maxf(h, g.zw - g.zr)
+		elif air_t > 0.0:
+			if land_i < 0:
+				land_i = i
+			squash = maxf(squash, g.zw - g.zb)
+			pitch_peak = maxf(pitch_peak, absf(g.pitch))
+			if absf(g.zb - g.zw) > 5.0:
+				settle_i = i - land_i
+	var res := {"speed_kmh": v, "air_s": r3(air_t), "height_units": r3(h), "landing_squash_units": r3(squash),
+		"landing_squash_screen_px": r3(squash * g.view.hh * 0.84 / 900.0 * 2.0), "landing_pitch_screen_px": r3(pitch_peak * 190.0 * 2.0),
+		"landing_settle_s": r3(settle_i * DT), "lateral_drift_road": r3(px_off), "speed_lost_kmh": r3(v - v_min), "jumps": g.n_jumps}
 	await drop()
 	return res
 
@@ -450,6 +505,7 @@ func _run() -> void:
 	out["tap"] = [await tap(50.0), await tap(90.0)]
 	out["curve_follow"] = [await curve_follow(70.0, 0.15), await curve_follow(95.0, 0.15)]
 	out["pothole"] = [await pothole_response(40.0), await pothole_response(70.0), await pothole_response(95.0)]
+	out["jump"] = [await jump(50.0), await jump(70.0), await jump(95.0)]
 	out["ride"] = [await ride(50.0, 40.0), await ride(70.0, 40.0), await ride(95.0, 40.0)]
 	out["full_drive"] = [await full_drive(70.0, 120.0, 1.6), await full_drive(90.0, 120.0, 1.6)]
 	out["autopilot"] = await autopilot(90.0)
@@ -507,6 +563,21 @@ func _shots_only() -> void:
 	place(sharpest_bend() - 10, 0.667, 70.0)
 	await step(90)
 	await shot("chase_curve")
+	for c in [1, 0]:   # the first crest of the road at 95 km/h, from outside and from the driver's seat
+		var ci := 0
+		while not (g.CREST[ci] > 0.0 and g.CREST[posmod(ci - 1, g.N)] == 0.0):
+			ci += 1
+		g.set_cam(c)
+		g.cars.clear()
+		place(ci - 30, 0.0, 95.0)
+		g.set_auto(false)
+		var n_air := 0
+		for i in 240:
+			await process_frame
+			n_air += 1 if g.air else 0
+			if n_air == 12:
+				break
+		await shot("chase_jump" if c == 1 else "cockpit_jump")
 	await drop()
 	var f := FileAccess.open(ProjectSettings.globalize_path("res://qa/shots/fps.txt"), FileAccess.WRITE)
 	f.store_string("render fps (software renderer): %.1f\n" % fps)
