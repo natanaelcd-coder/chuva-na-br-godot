@@ -31,8 +31,8 @@ func _process(_dt: float) -> void:
 	# inside the car the world tilts and bobs against the cabin: roll and pitch of the body
 	if g.cam == 0:
 		var c := Vector2(W / 2.0, g.view.hy + 40.0)
-		var r: float = -g.roll * 1.5
-		var o: Vector2 = c + (Vector2(0.0, g.pitch * 190.0) - c).rotated(r)
+		var r: float = -g.roll * 1.5 * g.view_sway
+		var o: Vector2 = c + (Vector2(0.0, g.pitch * 190.0 * g.view_sway) - c).rotated(r)
 		transform = Transform2D(r, Vector2(2, 2), 0.0, o * 2.0)
 	else:
 		transform = Transform2D(0.0, Vector2(2, 2), 0.0, Vector2.ZERO)
@@ -225,6 +225,7 @@ func _draw() -> void:
 		var cx := fposmod(c[0] - sky_off * 0.3, 520.0) - 110.0
 		draw_rect(Rect2(cx, c[1], c[2], c[3]), cc)
 		draw_rect(Rect2(cx + c[2] * 0.2, c[1] - c[3] * 0.5, c[2] * 0.5, c[3]), cc)
+	g.feature_call("draw_sky", [self, hy])   # features: rainbow, fireworks, balloons...
 	var hf: PackedFloat32Array = g.hill_f
 	var hn: PackedFloat32Array = g.hill_n
 	var col_f: Color = g.e_hf
@@ -474,6 +475,7 @@ func _draw() -> void:
 			var rh := r.size.y
 			if dusty:
 				_dust(rx + rw * 0.5, sy - rh * 0.15, rw, alpha)
+			g.feature_call("draw_car", [self, c, r, alpha])   # features: bumper phrases, blinkers...
 			if c.dir < 0 and c.get("flash_t", 0.0) > 0.0 and int(c.flash_t * 6.0) % 2 == 0:   # high beams: get back in your lane
 				_glow(rx + rw * 0.16, r.position.y + rh * 0.55, rw * 1.6 + 6.0, Color(1.0, 0.97, 0.85), alpha)
 				_glow(rx + rw * 0.84, r.position.y + rh * 0.55, rw * 1.6 + 6.0, Color(1.0, 0.97, 0.85), alpha)
@@ -490,6 +492,7 @@ func _draw() -> void:
 		if not ck and sg.i == pseg:
 			var k := fmod(g.pos, SEG) / SEG
 			_draw_player(lerpf(asx, bsx, k) + lerpf(asw, bsw, k) * g.px, lerpf(asy, bsy, k), lerpf(a_s, b_s, k))
+	g.feature_call("draw_world_over", [self])   # features: anything drawn over the road and traffic
 	if ck:
 		_glow(W / 2.0, 150.0, 150.0, LIGHT, g.headlight)   # own headlights on the road
 	else:

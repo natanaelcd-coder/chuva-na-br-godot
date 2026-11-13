@@ -1,7 +1,7 @@
 {
   "autopilot": {
     "car_bumps": 0,
-    "holes_hit": 8,
+    "holes_hit": 7,
     "per_seed_bumps": [
       0,
       0,
@@ -64,17 +64,17 @@
       "car_bumps": 1,
       "hazards_passed": 21,
       "hazards_per_min": 10.5,
-      "holes_hit": 1,
+      "holes_hit": 0,
       "lane_changes": 19,
       "lookahead_s": 1.6,
       "offroad_s": 0.0,
       "puddles_hit": 0,
-      "score": 54662,
+      "score": 58979,
       "seconds": 120.0,
       "speed_kmh": 90.0
     }
   ],
-  "generated_at": "2026-11-13T01:48:05",
+  "generated_at": "2026-11-13T02:17:14",
   "lane_change": [
     {
       "overshoot_road": 0.042,
@@ -307,7 +307,7 @@
     }
   ],
   "visibility": "medida na imagem renderizada: veja visibility_rendered (qa/shots/visibility.json, gerado por run_qa.sh)",
-  "wall_time_s": 125.377,
+  "wall_time_s": 121.799,
   "visibility_rendered": {
     "cams": {
       "chase": {

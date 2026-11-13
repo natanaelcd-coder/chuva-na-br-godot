@@ -12,7 +12,18 @@ const KEYS := ["car", "road", "weather", "time"]
 const LABELS := ["CARRO", "ESTRADA", "CLIMA", "HORA"]
 const ROW_Y := [88, 178, 250, 300]
 const BTN := Rect2(28, 346, 392, 30)
-const PAUSE_ITEMS := ["CONTINUAR", "MUDAR A VIAGEM", "SOM", "SAIR DO JOGO"]
+# pause items: built-ins plus whatever features add with add_pause_item (inserted before SAIR DO JOGO)
+var PAUSE_ITEMS: Array = ["CONTINUAR", "MUDAR A VIAGEM", "SOM", "SAIR DO JOGO"]
+var pause_cbs := {}        # label -> Callable, for feature items
+var extras: Array = []     # main-menu extra buttons: [{label, cb}], shown in a row under PEGAR A ESTRADA
+var extra_sel := 0
+var extras_label: Label
+var screen_root: Control
+var screen_title: Label
+var screen_body: Control
+var screen_key := Callable()
+var screen_back := ""      # what to show when the screen closes: "main" or "pause"
+var pause_frame: Panel
 
 var font: FontFile = preload("res://assets/fonts/Estrada2P.ttf")
 var g
@@ -110,8 +121,8 @@ func _build_main() -> void:
 	btn_label = _lbl("PEGAR A ESTRADA", 16, INK, BTN.position + Vector2(0, 7), main_root)
 	btn_label.size = Vector2(BTN.size.x, 18)
 	btn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_lbl("SETAS: ESCOLHER E TROCAR    ENTER: PARTIR", 8, LINE, Vector2(28, 388), main_root)
-	_lbl("NA ESTRADA: ESC PAUSA  V CÂMERA  R RÁDIO", 8, DIM, Vector2(28, 400), main_root)
+	extras_label = _lbl("", 8, DIM, Vector2(28, 384), main_root)
+	_lbl("SETAS ESCOLHEM E TROCAM  ENTER PARTE  ESC PAUSA", 8, DIM, Vector2(28, 400), main_root)
 	_lbl("PRÉVIA AO VIVO", 8, Color(INK, 0.6), Vector2(640, 12), main_root, true)
 
 func _build_pause() -> void:
@@ -120,19 +131,88 @@ func _build_pause() -> void:
 	pause_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(pause_root)
 	_rect(Rect2(0, 0, 768, 432), Color(0.02, 0.03, 0.07, 0.6), pause_root)
-	_frame(Rect2(214, 104, 340, 214), Color("0b1120"), LINE, pause_root)
+	pause_frame = _frame(Rect2(214, 104, 340, 214), Color("0b1120"), LINE, pause_root)
 	var t := _lbl("PAUSA", 32, AMBER, Vector2(214, 124), pause_root, true)
 	t.size = Vector2(340, 34)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.name = "PauseTitle"
+	_rebuild_pause()
+	# a generic full screen that features fill (caderneta, garagem, diário, ajustes...)
+	screen_root = Control.new()
+	screen_root.size = Vector2(768, 432)
+	screen_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(screen_root)
+	_rect(Rect2(0, 0, 768, 432), Color(0.02, 0.03, 0.07, 0.85), screen_root)
+	_frame(Rect2(20, 16, 728, 400), Color("0b1120"), LINE, screen_root)
+	screen_title = _lbl("", 16, AMBER, Vector2(40, 32), screen_root, true)
+	screen_body = Control.new()
+	screen_body.position = Vector2(40, 60)
+	screen_body.size = Vector2(688, 330)
+	screen_body.mouse_filter = Control.MOUSE_FILTER_PASS
+	screen_root.add_child(screen_body)
+	_lbl("ESC: VOLTAR", 8, DIM, Vector2(640, 36), screen_root)
+	screen_root.visible = false
+
+func _rebuild_pause() -> void:
+	for l in pause_labels:
+		l.queue_free()
+	pause_labels.clear()
+	var hgt := 96 + PAUSE_ITEMS.size() * 30
+	var top := int((432 - hgt) / 2.0)
+	pause_frame.position = Vector2(214, top)
+	pause_frame.size = Vector2(340, hgt)
+	pause_root.get_node("PauseTitle").position = Vector2(214, top + 20)
 	for i in PAUSE_ITEMS.size():
-		var l := _lbl("", 16, INK, Vector2(214, 180 + i * 30), pause_root)
+		var l := _lbl("", 16, INK, Vector2(214, top + 76 + i * 30), pause_root)
 		l.size = Vector2(340, 18)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		pause_labels.append(l)
 
+# ---- API for features (scripts/features/*.gd)
+func add_main_item(label: String, cb: Callable) -> void:
+	extras.append({"label": label, "cb": cb})
+	refresh()
+
+func add_pause_item(label: String, cb: Callable) -> void:
+	PAUSE_ITEMS.insert(PAUSE_ITEMS.size() - 1, label)
+	pause_cbs[label] = cb
+	_rebuild_pause()
+	refresh()
+
+# builder(body: Control) fills the screen; on_key(k: int) gets keys while it is open (Esc always closes)
+func open_screen(title: String, builder: Callable, on_key := Callable()) -> void:
+	screen_back = "pause" if pause_root.visible else "main"
+	main_root.visible = false
+	pause_root.visible = false
+	for c in screen_body.get_children():
+		c.queue_free()
+	screen_title.text = title
+	screen_key = on_key
+	screen_root.visible = true
+	builder.call(screen_body)
+
+func close_screen() -> void:
+	screen_root.visible = false
+	if screen_back == "pause":
+		show_pause()
+	elif g.state == "menu":
+		show_main()
+
+func screen_open() -> bool:
+	return screen_root.visible
+
+# helpers features can use to fill a screen in the same style
+func label(txt: String, size: int, col: Color, pos: Vector2, parent: Node) -> Label:
+	return _lbl(txt, size, col, pos, parent)
+
+func box(r: Rect2, col: Color, parent: Node) -> ColorRect:
+	return _rect(r, col, parent)
+
 func hide_all() -> void:
 	main_root.visible = false
 	pause_root.visible = false
+	if screen_root:
+		screen_root.visible = false
 
 func show_main() -> void:
 	pause_root.visible = false
@@ -173,6 +253,17 @@ func refresh() -> void:
 	btn_label.label_settings.font_color = AMBER if bon else INK
 	var rec: float = g.his.get(g.cfg.road, 0.0)
 	record.text = "RECORDE NESTA ESTRADA: %s" % _fmt(rec) if rec > 0.0 else "SEM RECORDE NESTA ESTRADA AINDA"
+	for f in g.features:   # a feature can replace this line with its own (e.g. odometer, collection)
+		if f.has_method("menu_info"):
+			var tx: String = f.menu_info()
+			if tx != "":
+				record.text = tx
+	var parts: Array = []
+	for i in extras.size():
+		var on := sel == KEYS.size() + 1 and i == extra_sel
+		parts.append(("> %s <" if on else "%s") % extras[i].label)
+	extras_label.text = "   ".join(parts)
+	extras_label.label_settings.font_color = AMBER if sel == KEYS.size() + 1 else DIM
 	for i in PAUSE_ITEMS.size():
 		var txt: String = PAUSE_ITEMS[i]
 		if txt == "SOM":
@@ -195,12 +286,21 @@ func _change(row: int, d: int) -> void:
 	_preview_cam()
 	refresh()
 
+func _rows() -> int:   # rows you can move through: options, the start button, and the extras row if any
+	return KEYS.size() + (2 if extras.size() > 0 else 1)
+
 func _select(i: int) -> void:
-	sel = clampi(i, 0, KEYS.size())
+	sel = clampi(i, 0, _rows() - 1)
 	_preview_cam()
 	refresh()
 
 func key(k: int) -> void:
+	if screen_root.visible:
+		if k == KEY_ESCAPE:
+			close_screen()
+		elif screen_key.is_valid():
+			screen_key.call(k)
+		return
 	if pause_root.visible:
 		match k:
 			KEY_UP, KEY_W:
@@ -219,19 +319,31 @@ func key(k: int) -> void:
 		return
 	match k:
 		KEY_UP, KEY_W:
-			_select((sel + KEYS.size()) % (KEYS.size() + 1))
+			_select((sel + _rows() - 1) % _rows())
 		KEY_DOWN, KEY_S:
-			_select((sel + 1) % (KEYS.size() + 1))
+			_select((sel + 1) % _rows())
 		KEY_LEFT, KEY_A:
 			if sel < KEYS.size():
 				_change(sel, -1)
+			elif sel == KEYS.size() + 1:
+				extra_sel = (extra_sel + extras.size() - 1) % extras.size()
+				refresh()
 		KEY_RIGHT, KEY_D:
 			if sel < KEYS.size():
 				_change(sel, 1)
+			elif sel == KEYS.size() + 1:
+				extra_sel = (extra_sel + 1) % extras.size()
+				refresh()
 		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
-			g.begin()
+			if sel == KEYS.size() + 1:
+				extras[extra_sel].cb.call()
+			else:
+				g.begin()
 
 func _pause_pick(i: int) -> void:
+	if pause_cbs.has(PAUSE_ITEMS[i]):
+		pause_cbs[PAUSE_ITEMS[i]].call()
+		return
 	match PAUSE_ITEMS[i]:
 		"CONTINUAR":
 			g.resume()
@@ -245,9 +357,11 @@ func _pause_pick(i: int) -> void:
 			get_tree().quit()
 
 func click(p: Vector2) -> void:
+	if screen_root.visible:
+		return
 	if pause_root.visible:
 		for i in PAUSE_ITEMS.size():
-			if Rect2(214, 176 + i * 30, 340, 26).has_point(p):
+			if Rect2(214, pause_frame.position.y + 72 + i * 30, 340, 26).has_point(p):
 				psel = i
 				_pause_pick(i)
 				return
@@ -257,6 +371,17 @@ func click(p: Vector2) -> void:
 	if BTN.has_point(p):
 		g.begin()
 		return
+	if extras.size() > 0 and Rect2(20, 380, 432, 14).has_point(p):   # extras row: pick by horizontal position
+		var x := 28.0
+		for i in extras.size():
+			var w: float = (extras[i].label.length() + 6) * 8.0
+			if p.x < x + w:
+				extra_sel = i
+				sel = KEYS.size() + 1
+				refresh()
+				extras[i].cb.call()
+				return
+			x += w
 	for i in KEYS.size():
 		var y: float = ROW_Y[i]
 		if Rect2(20, y - 4, 432, (80 if i < 2 else 48)).has_point(p):

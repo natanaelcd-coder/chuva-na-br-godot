@@ -13,6 +13,9 @@ html = html.replace(hook, 'window.__H = { GL, ACC, ACM, R, poly, circ, rr, mk, t
   await p.setContent('<!doctype html><html><head><meta charset="utf-8"></head><body>' + html + '</body></html>');
   await p.waitForTimeout(500);
   await p.addScriptTag({ content: fs.readFileSync(path.join(__dirname, 'art.js'), 'utf8') });
+  // more art lives in tools/art/art_*.js; each one adds its canvases with Object.assign(window.ART, {...})
+  for (const f of fs.readdirSync(__dirname).filter(f => /^art_.+\.js$/.test(f)).sort())
+    await p.addScriptTag({ content: fs.readFileSync(path.join(__dirname, f), 'utf8') });
   const imgs = await p.evaluate(() => Object.fromEntries(Object.entries(window.ART).map(([k, c]) => [k, c.toDataURL('image/png')])));
   for (const [k, d] of Object.entries(imgs)) fs.writeFileSync(path.join(root, 'assets/sprites', k + '.png'), Buffer.from(d.split(',')[1], 'base64'));
   console.log(Object.keys(imgs).length, 'sprites:', Object.keys(imgs).join(' '));

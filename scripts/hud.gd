@@ -99,6 +99,9 @@ func _ready() -> void:
 	set_values(0, 0, 0, "N", 0.8)
 
 func _process(dt: float) -> void:
+	if notice_t > 0.0:
+		notice_t -= dt
+		l_notice.modulate.a = clampf(notice_t / 0.6, 0.0, 1.0)
 	if now_w > 0.0:   # marquee: pause at the start, then scroll and loop
 		now_t += dt
 		l_now.position.x = -floorf(fmod(maxf(0.0, now_t - 2.0) * 30.0, now_w))
@@ -136,6 +139,16 @@ func set_now(txt: String) -> void:
 	else:
 		now_w = 0.0
 		l_now.text = txt
+
+# a discreet line over the radio strip, for things that shouldn't shout (new sticker, km milestone...)
+var l_notice: Label
+var notice_t := 0.0
+func notice(txt: String, dur := 4.0) -> void:
+	if l_notice == null:
+		l_notice = _label("", 8, Color("ffd65a"), Vector2(10, 396), self, true)
+	l_notice.text = txt
+	notice_t = dur
+	l_notice.modulate.a = 1.0
 
 func set_drive(on: bool) -> void:
 	for n in drive_nodes:

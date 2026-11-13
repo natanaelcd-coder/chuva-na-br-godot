@@ -40,6 +40,22 @@ var fog_k := 1.0      # how thick the haze is: rain 1.0, sun lighter
 var headlight := 0.16
 var his := {}         # best score per road
 
+# --- extension points for scripts/features/*.gd (each feature is a Node child of this one; see scripts/features/README.md)
+signal setup_done                                   # the trip was (re)built: new road, car, weather
+signal trip_started                                 # the player took the wheel
+signal trip_ended(summary: Dictionary)              # back to the menu: km, minutes, holes, puddles, bumps, score
+signal seg_passed(i: int)                           # the car crossed road segment i
+signal hole_hit(f: Dictionary, side: float, k: float)
+signal hole_missed(f: Dictionary, d: float)         # a pothole passed under the car without touching a wheel
+signal puddle_hit(f: Dictionary)
+signal bumped(kind: String)                         # "rear", "side", "oncoming", "rail"
+signal refueled(stop_i: int)
+var features: Array = []
+var store := ConfigFile.new()   # one save file for everything (user://viagem.cfg); use store_get/store_set
+var km_trip := 0.0              # km driven since the player took the wheel
+var trip_time := 0.0            # seconds since then
+var view_sway := 1.0            # comfort: scales how much the view rolls and pitches with the body
+
 @onready var hud = $HUD
 @onready var menu = $Menu
 
@@ -199,6 +215,7 @@ func _ready() -> void:
 	for i in 5:
 		tex["label%d" % i] = load("res://assets/sprites/label%d.png" % i)
 	_load_cfg()
+	_load_features()
 	setup()
 	_init_audio()
 	a_rain.play()
@@ -266,6 +283,7 @@ func setup() -> void:
 	_env()
 	_now_playing()
 	$Cockpit.setup()
+	setup_done.emit()
 
 func _view_for(c: int) -> Dictionary:
 	var vw: Dictionary = VIEWS[c].duplicate()
@@ -280,10 +298,47 @@ func nearest_lane(x: float) -> int:
 			best = i
 	return best
 
+func _load_features() -> void:
+	var dir := DirAccess.open("res://scripts/features")
+	if dir == null:
+		return
+	var names: Array = []
+	for f in dir.get_files():
+		f = f.trim_suffix(".remap")   # exported builds list scripts as *.gd.remap
+		if f.ends_with(".gd") and not names.has(f):
+			names.append(f)
+	names.sort()
+	for f in names:
+		var n := Node.new()
+		n.set_script(load("res://scripts/features/" + f))
+		n.name = f.get_basename()
+		add_child(n)
+		features.append(n)
+
+# calls method on every feature that has it; returns true if one of them returned true (consumed)
+func feature_call(method: String, args: Array = []) -> bool:
+	var used := false
+	for f in features:
+		if f.has_method(method):
+			if f.callv(method, args) == true:
+				used = true
+	return used
+
+func store_get(section: String, key: String, default = null):
+	return store.get_value(section, key, default)
+
+func store_set(section: String, key: String, value) -> void:
+	store.set_value(section, key, value)
+
+func store_save() -> void:
+	if Engine.has_meta("test_seed"):
+		return
+	store.save(CFG_PATH)
+
 func _load_cfg() -> void:
 	if Engine.has_meta("test_seed"):
 		return
-	var c := ConfigFile.new()
+	var c := store
 	if c.load(CFG_PATH) == OK:
 		for k in cfg.keys():
 			var v0 = c.get_value("viagem", k, cfg[k])
@@ -296,14 +351,11 @@ func _load_cfg() -> void:
 		his["br"] = float(FileAccess.get_file_as_string(SAVE_PATH))
 
 func _save_cfg() -> void:
-	if Engine.has_meta("test_seed"):
-		return
-	var c := ConfigFile.new()
 	for k in cfg.keys():
-		c.set_value("viagem", k, cfg[k])
+		store.set_value("viagem", k, cfg[k])
 	for r in his.keys():
-		c.set_value("recordes", r, his[r])
-	c.save(CFG_PATH)
+		store.set_value("recordes", r, his[r])
+	store_save()
 
 
 # ---------------------------------------------------------------- track
@@ -340,7 +392,7 @@ func _build_track() -> void:
 	TRACK = N * SEG
 
 func _add_spr(i: int, t_name: String, off: float, ww: float, kind := 0) -> void:
-	segs[posmod(i, N)].spr.append({"tex": tex[t_name], "off": off, "ww": ww, "kind": kind})
+	segs[posmod(i, N)].spr.append({"tex": tex[t_name], "off": off, "ww": ww, "kind": kind, "name": t_name})
 
 func _clear_around(i: int, r: int) -> void:   # keep a stop's forecourt free of trees and signs
 	for d in range(-r, r + 1):
@@ -667,6 +719,8 @@ func begin() -> void:
 	n_holes = 0
 	n_puddles = 0
 	n_bumps = 0
+	km_trip = 0.0
+	trip_time = 0.0
 	menu.hide_all()
 	hud.set_drive(true)
 	set_auto(false)
@@ -675,10 +729,15 @@ func begin() -> void:
 	a_rumble.play()
 	a_hiss.play()
 	hud.toast("BOA VIAGEM", 3.0)
+	trip_started.emit()
 
 # back to the trip planner: the car keeps rolling on autopilot behind the menu
 func to_menu() -> void:
 	_save_hi()
+	if started:
+		trip_ended.emit({"km": km_trip, "minutes": trip_time / 60.0, "holes": n_holes, "puddles": n_puddles,
+			"bumps": n_bumps, "score": score, "car": cfg.car, "road": cfg.road, "weather": cfg.weather, "time": cfg.time})
+	store_save()
 	started = false
 	state = "menu"
 	auto = true
@@ -735,6 +794,8 @@ func _unhandled_input(ev: InputEvent) -> void:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
 		elif state == "menu" or state == "pause":
 			menu.key(k)
+		elif feature_call("drive_key", [k]):
+			pass
 		elif k == KEY_ESCAPE:
 			pause()
 		elif k == KEY_R:
@@ -790,9 +851,10 @@ func _splash() -> void:
 func _hit_feat(f: Dictionary, sp: float) -> void:
 	var d: float = f.x - px
 	if f.t == 0:   # pothole: which wheel took it?
-		var l: bool = absf(d + 0.2) < f.w + 0.06 or absf(d) < 0.06   # dead centre: both wheels drop in
-		var r: bool = absf(d - 0.2) < f.w + 0.06 or absf(d) < 0.06
-		if not l and not r:
+		var l: bool = absf(d + 0.2) < f.w + 0.06
+		var r: bool = absf(d - 0.2) < f.w + 0.06
+		if not l and not r:   # it went between or beside the wheels
+			hole_missed.emit(f, d)
 			return
 		var side := 0.0 if (l and r) else (-1.0 if l else 1.0)
 		var k := (0.5 + sp) * (0.75 + 5.0 * clampf(f.w - 0.07, 0.0, 0.05)) * (1.3 if side == 0.0 else 1.0)   # bigger hole, harder hit; both wheels, harder still
@@ -807,6 +869,7 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 		dice_v += randf_range(-3, 3)
 		clean = maxf(0.0, clean - 8.0)
 		n_holes += 1
+		hole_hit.emit(f, side, k)
 		sfx["hole"].volume_db = linear_to_db(0.35 + 0.65 * clampf(k / 1.45, 0.0, 1.0))
 		_sfx("hole")
 		if started and hud.toast_t <= 0.0:
@@ -820,6 +883,7 @@ func _hit_feat(f: Dictionary, sp: float) -> void:
 		v = maxf(0.0, v - 5.0 * sp)
 		zb_v -= 60.0
 		n_puddles += 1
+		puddle_hit.emit(f)
 		_splash()
 
 # autopilot: weigh potholes, puddles and slower cars over the next ~1.6 s in each lane
@@ -1026,6 +1090,7 @@ func _process(dt: float) -> void:
 			mult = maxi(1, mult - 1)   # a scrape costs a step, like a nudge
 			clean = minf(clean, (mult - 1) * 25.0)
 			hud.toast("EPA, GUARD-RAIL!" if road.median == "rail" else "EPA, MURETA!", 1.5)
+			bumped.emit("rail")
 		px = -1.06
 		vx = maxf(vx, 0.0)
 	if walled and px <= -1.04:   # holding it against the rail scrubs speed
@@ -1048,10 +1113,12 @@ func _process(dt: float) -> void:
 		for n in 4:
 			for f in segs[i].feat:
 				_hit_feat(f, sp)
+			seg_passed.emit(i)
 			if postos.has(i):
 				if px > LANES.back() - 0.42:
 					fuel = 1.0
 					low_warn = false
+					refueled.emit(i)
 					if started:
 						score += 500.0
 						hud.toast("TANQUE CHEIO  +500")
@@ -1097,6 +1164,8 @@ func _process(dt: float) -> void:
 			hud.toast("DIREÇÃO SUAVE  x%d" % m)
 		mult = m
 		score += v * dt * 2.0 * mult
+		km_trip += v * dt / 3600.0
+		trip_time += dt
 		save_t += dt
 		if save_t > 3.0:
 			save_t = 0.0
@@ -1146,6 +1215,7 @@ func _process(dt: float) -> void:
 					dice_v += 3.0
 					pitch_v -= 0.5
 					hud.toast("OPA! SEM PRESSA")
+					bumped.emit("side" if swipe else "rear")
 					n_bumps += 1
 					_sfx("bump")
 		elif road.two_way and absf(c.x) < 1.0:   # oncoming, on our road: flashes and honks, a touch costs a step
@@ -1170,6 +1240,7 @@ func _process(dt: float) -> void:
 					dice_v += 3.0
 					roll_v += 0.4
 					hud.toast("OLHA A CONTRAMÃO!")
+					bumped.emit("oncoming")
 					n_bumps += 1
 					sfx["bump"].volume_db = 0.0
 					_sfx("bump")

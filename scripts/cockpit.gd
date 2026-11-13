@@ -162,6 +162,9 @@ func _draw() -> void:
 				R("16482c", -1, 15, 2, 3)
 				_reset()
 
+	g.feature_call("draw_hang", [self, Vector2(ax, ay)])   # features: more things hanging from the mirror
+	g.feature_call("draw_cabin_mid", [self])              # features: passenger, dash items (under the wheel and arm)
+
 	# --- gauges, clock and radio
 	var sp_: Array = lay.speedo
 	_needle(Vector2(sp_[0], sp_[1]), sp_[2], g.v / sp_[3], Color("f2a62a"))
@@ -255,3 +258,4 @@ func _draw() -> void:
 	draw_circle(h + Vector2(2, -3), 6.0, Color("e3ab7c"))
 	for i in range(-1, 3):
 		draw_line(h + Vector2(1 + i, -8 + i * 4), h + Vector2(8, -6 + i * 4), Color("96643a"), 0.5)
+	g.feature_call("draw_cabin_over", [self])   # features: anything over the whole cabin
