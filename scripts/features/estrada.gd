@@ -17,7 +17,9 @@ const TANK_KM := 11.67     # a full tank, with game.gd burning dt / 600 s at 70 
 const INK := Color("e6e8ee")
 const ART := ["placa_km_verde", "placa_km_marrom", "placa_cidade", "placa_volte", "portico_branco", "placa_lombada",
 	"placa_reduza", "casa_vila0", "casa_vila1", "casa_vila2", "casa_vila3", "casa_vila4", "igreja", "bar", "ponto_onibus",
-	"orelhao", "gente0", "gente1", "gente2", "bandeirinhas"]
+	"orelhao", "gente0", "gente1", "gente2", "bandeirinhas",
+	"ipe_amarelo", "ipe_roxo", "mangueira", "jabuticabeira", "coqueiro", "coqueiro2", "tree2", "araucaria2", "bush2",
+	"banca_frutas", "caldo_cana", "cruz_flores", "placa_mel", "caixa_dagua", "torre_celular", "borracharia"]
 const ROADS := {
 	"terra": {"town_km": [4.0, 7.0], "stop_km": [4.0, 6.0], "km_sign": [1.0, 1.6], "town_len": 200, "town_pre": 200,
 		"zones": ["cafe", "pasto", "eucalipto", "mata"], "zone_len": [80, 160], "stop_name": "VENDA"},
@@ -131,7 +133,7 @@ func _on_setup() -> void:
 	name_i = 0
 	base_km = rng.randi_range(12, 280)
 	next_at = {"sign": rng.randi_range(100, 250), "board": rng.randi_range(250, 450), "km": rng.randi_range(160, 420),
-		"farm": rng.randi_range(150, 300), "led": rng.randi_range(300, 500), "placa": rng.randi_range(200, 350)}
+		"farm": rng.randi_range(150, 300), "stand": rng.randi_range(120, 260), "tower": rng.randi_range(500, 900), "led": rng.randi_range(300, 500), "placa": rng.randi_range(200, 350)}
 	stops.append({"a": int(rng.randf_range(2.5, 4.0) * SEGS_KM), "planned": false})
 	rough.append([0, 260 + rng.randi_range(0, period / 2), -1])   # start on a smooth stretch: its warning needs room
 	g.postos.clear()
@@ -164,7 +166,7 @@ func _pick(a: Array):
 	return a[rng.randi_range(0, a.size() - 1)]
 
 func _spr(name: String, off: float, ww: float, kind := 0, keep := false) -> Dictionary:
-	return {"tex": g.tex[name], "off": off, "ww": ww, "kind": kind, "name": name, "keep": keep}
+	return {"tex": g.tex[name], "off": off, "ww": g.ww_fit(name, ww), "kind": kind, "name": name, "keep": keep}
 
 func _put(a: int, name: String, off: float, ww: float, kind := 0, keep := false) -> void:
 	if not pending.has(a):
@@ -262,6 +264,7 @@ func _streams(h: int) -> void:
 				_plan_km_sign(a)
 	match road_id:
 		"br":
+			_plan_stand(h, [["banca_frutas", 2600.0], ["caldo_cana", 2600.0], ["cruz_flores", 600.0], ["ponto_onibus", 1700.0]], 1.2)
 			while next_at.sign <= h:
 				var a: int = next_at.sign
 				next_at.sign += rng.randi_range(250, 450)
@@ -273,6 +276,7 @@ func _streams(h: int) -> void:
 				if not _blocked(a, 10):
 					_put(a, "board%d" % rng.randi_range(0, 3), 2.3, 2600.0, 5)
 		"terra":
+			_plan_stand(h, [["banca_frutas", 2600.0], ["caldo_cana", 2600.0], ["cruz_flores", 600.0]], 1.18)
 			while next_at.farm <= h:   # a farmhouse with its gate, a chapel now and then, and the signs before it
 				var a: int = next_at.farm
 				next_at.farm += rng.randi_range(220, 400)
@@ -283,9 +287,16 @@ func _streams(h: int) -> void:
 					quiet[a + d] = true
 				_put(a, "capela" if rng.randf() < 0.18 else "casa_sitio", side * 3.0, 2600.0)
 				_put(a - 6, "porteira", side * 1.42, 900.0)
-				_put(a - 60, _pick(["placa_queijo", "placa_ovos"]), 1.36, 900.0, 4)
+				_put(a - 60, _pick(["placa_queijo", "placa_ovos", "placa_mel"]), 1.36, 900.0, 4)
+				if rng.randf() < 0.35:   # a water tank beside the farmhouse
+					_put(a + 4, "caixa_dagua", -side * 3.4, 1100.0)
 				_put(a - 120, "placa_sitio%d" % rng.randi_range(0, 2), 1.4, 1700.0, 4)
 		"expressa":
+			while next_at.tower <= h:
+				var a: int = next_at.tower
+				next_at.tower += rng.randi_range(900, 1600)
+				if not _blocked(a, 30):
+					_put(a, "torre_celular", rng.randf_range(4.0, 6.0) * (1.0 if rng.randf() < 0.5 else -1.0), 800.0)
 			while next_at.led <= h:
 				var a: int = next_at.led
 				next_at.led += rng.randi_range(400, 700)
@@ -296,6 +307,22 @@ func _streams(h: int) -> void:
 				next_at.placa += rng.randi_range(400, 700)
 				if not _blocked(a, 10):
 					_put(a, _pick(["placa_radar", "placa_saida", "placa_pedagio"]), 1.4, 1700.0, 4)
+
+# a fruit stand, a cane-juice stall, a roadside cross or a bus stop beside the road, outside the towns
+func _plan_stand(h: int, kinds: Array, off: float) -> void:
+	while next_at.stand <= h:
+		var a: int = next_at.stand
+		next_at.stand += rng.randi_range(260, 520)
+		if _blocked(a, 40):
+			continue
+		var k: Array = _pick(kinds)
+		var side := 1.0
+		if road_id == "terra" and rng.randf() < 0.4:
+			side = -1.0
+		var ww: float = k[1]
+		_put(a, k[0], side * (off + ww / g.ROADW / 2.0 + 0.1), ww, 0, k[0] == "ponto_onibus")
+		for d in range(-3, 4):
+			quiet[a + d] = true
 
 func _plan_stop(a: int) -> void:
 	stop_at[a] = true
@@ -504,31 +531,31 @@ func _clutter(A: int, i: int, in_town: bool) -> void:
 				_add(i, "pole", 1.42, 1100.0, 1)
 			if in_town:
 				return
-			var trees := ["tree0", "tree1", "araucaria", "araucaria"]
+			var trees := ["tree0", "tree1", "tree2", "araucaria", "araucaria", "araucaria2", "mangueira"]
 			match zk:
 				"campo":
 					if rng.randf() < 0.22:
 						_add(i, _pick(trees), rng.randf_range(1.9, 5.5), rng.randf_range(1500, 2400))
 					if rng.randf() < 0.1:
-						_add(i, "bush", rng.randf_range(1.25, 1.7), 800.0)
+						_add(i, _pick(["bush", "bush2"]), rng.randf_range(1.25, 1.7), 800.0)
 				"araucaria":
 					if rng.randf() < 0.3:
-						_add(i, "araucaria", rng.randf_range(1.8, 5.5), rng.randf_range(1700, 2500))
+						_add(i, _pick(["araucaria", "araucaria2"]), rng.randf_range(1.8, 5.5), rng.randf_range(1700, 2500))
 				"pasto":
 					if A % 3 == 0:
 						_add(i, "cerca", 1.28, 700.0)
 					if rng.randf() < 0.025:
 						_add(i, _pick(["vaca0", "vaca1"]), rng.randf_range(1.9, 4.5), 900.0)
 					if rng.randf() < 0.03:
-						_add(i, _pick(["tree0", "ipe"]), rng.randf_range(3.0, 6.0), rng.randf_range(1600, 2300))
+						_add(i, _pick(["tree0", "ipe", "ipe_amarelo", "ipe_roxo", "mangueira", "jabuticabeira"]), rng.randf_range(3.0, 6.0), rng.randf_range(1600, 2300))
 				"eucalipto":
 					if rng.randf() < 0.35:
 						_add(i, "eucalipto", rng.randf_range(1.8, 5.5), rng.randf_range(1500, 2100))
 				"mata":
 					if rng.randf() < 0.3:
-						_add(i, _pick(["tree0", "tree1", "araucaria", "bambu", "ipe"]), rng.randf_range(1.6, 5.0), rng.randf_range(1500, 2400))
+						_add(i, _pick(["tree0", "tree1", "tree2", "araucaria2", "bambu", "ipe", "ipe_amarelo", "ipe_roxo"]), rng.randf_range(1.6, 5.0), rng.randf_range(1500, 2400))
 					elif rng.randf() < 0.12:
-						_add(i, "bush", rng.randf_range(1.25, 1.7), 800.0)
+						_add(i, _pick(["bush", "bush2"]), rng.randf_range(1.25, 1.7), 800.0)
 			if rng.randf() < (0.3 if zk == "araucaria" or zk == "mata" else 0.2):
 				_add(i, _pick(trees), -rng.randf_range(3.9, 7.0), rng.randf_range(1500, 2400))
 		"terra":
@@ -548,15 +575,15 @@ func _clutter(A: int, i: int, in_town: bool) -> void:
 						if rng.randf() < 0.025:
 							_add(i, _pick(["vaca0", "vaca1"]), side * rng.randf_range(1.9, 4.5), 900.0)
 						if rng.randf() < 0.03:
-							_add(i, _pick(["tree0", "ipe"]), side * rng.randf_range(3.0, 6.0), rng.randf_range(1600, 2300))
+							_add(i, _pick(["tree0", "ipe", "ipe_amarelo", "ipe_roxo", "mangueira", "jabuticabeira"]), side * rng.randf_range(3.0, 6.0), rng.randf_range(1600, 2300))
 					"eucalipto":
 						if rng.randf() < 0.35:
 							_add(i, "eucalipto", side * rng.randf_range(1.8, 5.5), rng.randf_range(1500, 2100))
 					"mata":
 						if rng.randf() < 0.3:
-							_add(i, _pick(["tree0", "tree1", "araucaria", "bambu", "ipe"]), side * rng.randf_range(1.5, 5.0), rng.randf_range(1500, 2400))
+							_add(i, _pick(["tree0", "tree1", "tree2", "araucaria2", "bambu", "ipe", "ipe_amarelo", "ipe_roxo", "jabuticabeira"]), side * rng.randf_range(1.5, 5.0), rng.randf_range(1500, 2400))
 						elif rng.randf() < 0.1:
-							_add(i, "bush", side * rng.randf_range(1.3, 1.8), 800.0)
+							_add(i, _pick(["bush", "bush2"]), side * rng.randf_range(1.3, 1.8), 800.0)
 		"expressa":
 			if A % 8 == 0:
 				_add(i, "luminaria", -1.1, 1900.0, 6)
@@ -564,9 +591,9 @@ func _clutter(A: int, i: int, in_town: bool) -> void:
 				if A % 2 == 0:
 					_add(i, "muro", 1.55, 1700.0)
 			elif rng.randf() < 0.12:
-				_add(i, _pick(["tree0", "tree1", "bush"]), rng.randf_range(1.8, 5.0), rng.randf_range(1300, 2200))
+				_add(i, _pick(["tree0", "tree1", "bush", "bush2", "coqueiro", "coqueiro2", "coqueiro", "mangueira"]), rng.randf_range(1.8, 5.0), rng.randf_range(1300, 2200))
 			if rng.randf() < 0.08:
-				_add(i, _pick(["tree0", "tree1"]), -rng.randf_range(3.6, 6.0), rng.randf_range(1500, 2200))
+				_add(i, _pick(["tree0", "tree1", "coqueiro", "coqueiro2", "tree2"]), -rng.randf_range(3.6, 6.0), rng.randf_range(1500, 2200))
 			if A % 60 == 30:
 				_add(i, "sos", 1.3, 500.0)
 

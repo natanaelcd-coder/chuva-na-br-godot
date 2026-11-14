@@ -15,7 +15,7 @@ func _ready() -> void:
 
 func _on_setup() -> void:
 	_kinds.clear()
-	for n in ["car7", "cegonha"]:
+	for n in ["car7", "cegonha", "boiadeiro"]:
 		if g.tex.has(n):
 			_kinds[g.tex[n]] = "caminhao"
 	_kinds[g.tex["onibus"]] = "onibus"

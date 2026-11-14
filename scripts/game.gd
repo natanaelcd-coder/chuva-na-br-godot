@@ -23,7 +23,7 @@ const SPRITES := ["tree0", "tree1", "araucaria", "bush", "pole", "lamp", "posto"
 	"front_mod0", "front_mod1", "cerca", "eucalipto", "cafe", "casa_sitio", "capela", "vaca0", "vaca1", "porteira",
 	"placa_queijo", "placa_ovos", "placa_gado", "venda", "ipe", "bambu", "placa_sitio0", "placa_sitio1", "placa_sitio2",
 	"placa_venda", "luminaria", "muro", "portico", "led0", "led1", "sos", "placa_radar", "placa_saida", "placa_pedagio",
-	"placa_parada", "parada"]
+	"placa_parada", "parada", "boiadeiro"]
 
 # the trip the player picked (menu), and what it resolves to
 var cfg := {"car": "besouro", "road": "br", "weather": "chuva", "time": "entardecer"}
@@ -428,8 +428,18 @@ func _build_track() -> void:
 	N = segs.size()
 	TRACK = N * SEG
 
+# vegetation redrawn by AI is wider than the old pixel sprites: the width follows so the height stays the same
+const OLD_ASPECT := {"tree0": 1.333, "tree1": 1.333, "araucaria": 1.667, "bambu": 1.6, "bush": 0.4375, "eucalipto": 3.0,
+	"ipe": 1.333, "ipe_amarelo": 1.333, "ipe_roxo": 1.333, "ipe_branco": 1.333, "ipe_rosa": 1.333}
+
+func ww_fit(t_name: String, ww: float) -> float:
+	if OLD_ASPECT.has(t_name) and tex.has(t_name):
+		var tx: Texture2D = tex[t_name]
+		return ww * OLD_ASPECT[t_name] * tx.get_width() / tx.get_height()
+	return ww
+
 func _add_spr(i: int, t_name: String, off: float, ww: float, kind := 0) -> void:
-	segs[posmod(i, N)].spr.append({"tex": tex[t_name], "off": off, "ww": ww, "kind": kind, "name": t_name})
+	segs[posmod(i, N)].spr.append({"tex": tex[t_name], "off": off, "ww": ww_fit(t_name, ww), "kind": kind, "name": t_name})
 
 func _clear_around(i: int, r: int) -> void:   # keep a stop's forecourt free of trees and signs
 	for d in range(-r, r + 1):
@@ -626,8 +636,9 @@ func _spawn_cars() -> void:
 	if cfg.road == "terra":
 		for i in 12:   # our side: tractors and old cars; you overtake them through the oncoming lane
 			var tr := i % 4 == 0
-			cars.append({"z": randf_range(0, TRACK), "x": LANES[1], "v": randf_range(18, 24) if tr else randf_range(38, 52),
-				"tex": tex["trator"] if tr else tex["car%d" % (randi() % 7)], "dir": 1})
+			var boi := i % 6 == 5   # the cattle truck, slow on the dirt
+			cars.append({"z": randf_range(0, TRACK), "x": LANES[1], "v": randf_range(18, 24) if tr else (randf_range(28, 36) if boi else randf_range(38, 52)),
+				"tex": tex["trator"] if tr else (tex["boiadeiro"] if boi else tex["car%d" % (randi() % 7)]), "dir": 1})
 		for i in 7:
 			cars.append({"z": randf_range(0, TRACK), "x": LANES[0], "v": -randf_range(40, 58), "tex": tex["front%d" % (randi() % 3)], "dir": -1})
 	elif cfg.road == "expressa":
@@ -644,7 +655,7 @@ func _spawn_cars() -> void:
 		for i in 26:
 			var l := i % 3
 			var sp := randf_range(55, 68) if l == 0 else (randf_range(45, 58) if l == 1 else randf_range(34, 48))
-			var name := "car7" if (l == 2 and randf() < 0.35) else "car%d" % (randi() % 7)
+			var name: String = ["car7", "car7", "boiadeiro"].pick_random() if (l == 2 and randf() < 0.35) else "car%d" % (randi() % 7)
 			cars.append({"z": randf_range(0, TRACK), "x": LANES[l], "v": sp, "tex": tex[name], "dir": 1})
 		for i in 9:
 			cars.append({"z": randf_range(0, TRACK), "x": -2.1 if i % 2 else -2.8, "v": -randf_range(50, 70), "tex": tex["front%d" % (randi() % 3)], "dir": -1})
