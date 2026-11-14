@@ -11,3 +11,16 @@ pelos segredos de rede da sessão.
 
 Retro Diffusion: preço grátis com `check_cost`; plus US$0,06 e core US$0,10 em 384x216.
 PixelLab: conta por gerações do plano. Primeiro teste em docs/ia/teste1/.
+
+## Áudio do jogo (ElevenLabs)
+
+    python3 tools/ai/vozes_radio.py [--dry]   # locução do rádio: roteiros, geração do que falta, índice
+    python3 tools/ai/sfx_jogo.py              # efeitos sonoros: geração do que falta e tratamento para o Godot
+
+- Vozes: Serra FM = "Locutor Serra FM" (Rômulo Franklin, `HR2TRGmi4QbMsO5omv7l`), Litoral FM = "Locutora Litoral FM"
+  (Alice, `xMGbstDe7gGBMg3DqxOc`), Noite AM = "Locutor Noite AM" (Daniel Mercer, `uMk2ijhneJaRm2sKMgdi`).
+- 157 falas em `assets/audio/voz/*.ogg` (mono, -16 LUFS); índice em `scripts/radio_vozes.gd` (texto do letreiro
+  ligado ao arquivo). O roteiro falado escreve números por extenso e soletra siglas ("á-éme", "bê-érre").
+- Efeitos: engine.wav (loop refeito com crossfade), rain.ogg, chuva_teto.ogg, hole/bump/splash/wiper/horn.wav,
+  seta.wav (relé da seta), pouso.wav (pouso do pulo), trovao.ogg (trovão longe na chuva forte).
+- Os mp3 brutos ficam fora do git (variável BRUTO); os scripts só chamam a API para o que ainda não existe.

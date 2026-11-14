@@ -229,7 +229,9 @@ func draw_world_over(w) -> void:
 	w.draw_circle(p, 2.2 * k, Color("ffc04a"))
 	w._glow(p.x, p.y, 10.0 * k, Color(1.0, 0.7, 0.2), 0.8)
 
-static func _click_sound() -> AudioStreamWAV:
+static func _click_sound() -> AudioStream:
+	if ResourceLoader.exists("res://assets/audio/seta.wav"):   # the relay of an old car (ElevenLabs, tools/ai/sfx_jogo.py)
+		return load("res://assets/audio/seta.wav")
 	var rate := 22050
 	var n := int(rate * 0.025)
 	var data := PackedByteArray()

@@ -15,12 +15,21 @@ var bow_x := 0.0       # where on the sky band it stands
 var curtain := 0.0     # the grey rain curtain coming over the hills before a downpour
 var heavy := 0.0       # how hard this downpour falls
 var rng := RandomNumberGenerator.new()   # own dice, so the game's random sequence stays the same
+var a_thunder: AudioStreamPlayer        # soft far thunder in a hard downpour (assets/audio/trovao.ogg)
+var thunder_t := 30.0
+var thunder_rng := RandomNumberGenerator.new()   # separate, so thunder never shifts the weather's dice
 
 func _ready() -> void:
 	g = get_parent()
 	if Engine.has_meta("test_seed"):
 		rng.seed = Engine.get_meta("test_seed")
 	g.setup_done.connect(_on_setup)
+	thunder_rng.seed = rng.seed + 101
+	a_thunder = AudioStreamPlayer.new()
+	if ResourceLoader.exists("res://assets/audio/trovao.ogg"):
+		a_thunder.stream = load("res://assets/audio/trovao.ogg")
+	add_child(a_thunder)
+	(func(): a_thunder.bus = "Chuva" if AudioServer.get_bus_index("Chuva") >= 0 else "Master").call_deferred()
 
 func _on_setup() -> void:
 	bow = 0.0
@@ -35,6 +44,18 @@ func _on_setup() -> void:
 	g.rain = 0.0
 	g.rain_goal = 0.0
 	sky_goal = 0.0
+
+# now and then, far away, while it pours: never close, never a flash, just the sky grumbling
+func _thunder(dt: float) -> void:
+	if a_thunder.stream == null or not g.started or g.state != "drive" or g.rain < 0.75:
+		thunder_t = maxf(thunder_t, 15.0)
+		return
+	thunder_t -= dt
+	if thunder_t <= 0.0:
+		thunder_t = thunder_rng.randf_range(35.0, 80.0)
+		a_thunder.pitch_scale = thunder_rng.randf_range(0.85, 1.1)
+		a_thunder.volume_db = linear_to_db(clampf((g.rain - 0.7) * 1.6, 0.15, 0.5))
+		a_thunder.play()
 
 func _daylight() -> bool:
 	return g.tday < 1.25 or g.tday >= 3.15
@@ -99,6 +120,7 @@ func _process(dt: float) -> void:
 	if bow_t > 0.0:
 		bow_t -= dt
 	bow = move_toward(bow, 1.0 if bow_t > 0.0 else 0.0, dt / (6.0 if bow_t > 0.0 else 10.0))
+	_thunder(dt)
 	if not g.mixed_weather:
 		curtain = 0.0
 		return

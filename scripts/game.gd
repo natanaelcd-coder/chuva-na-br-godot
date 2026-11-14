@@ -207,6 +207,7 @@ var static_t := 0.0
 var sound_on := true
 var a_music: AudioStreamPlayer
 var a_rain: AudioStreamPlayer
+var a_roof: AudioStreamPlayer   # rain drumming on the roof, loud from the cockpit (assets/audio/chuva_teto.ogg)
 var a_engine: AudioStreamPlayer
 var a_rumble: AudioStreamPlayer
 var a_hiss: AudioStreamPlayer
@@ -236,6 +237,7 @@ func _ready() -> void:
 	setup()
 	_init_audio()
 	a_rain.play()
+	a_roof.play()
 	_tune()
 	menu.show_main()
 
@@ -719,6 +721,10 @@ func _init_audio() -> void:
 	r.loop = true
 	a_rain = _player(r)
 	a_rain.volume_db = -80.0
+	var rf: AudioStreamOggVorbis = load("res://assets/audio/chuva_teto.ogg")
+	rf.loop = true
+	a_roof = _player(rf)
+	a_roof.volume_db = -80.0
 	var e: AudioStreamWAV = load("res://assets/audio/engine.wav")
 	e.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	e.loop_begin = 0
@@ -729,7 +735,7 @@ func _init_audio() -> void:
 	a_rumble.volume_db = -80.0
 	a_hiss = _player(_noise_loop(false))
 	a_hiss.volume_db = -80.0
-	for n in ["hole", "bump", "splash", "static", "wiper", "horn"]:
+	for n in ["hole", "bump", "splash", "static", "wiper", "horn", "pouso"]:
 		sfx[n] = _player(load("res://assets/audio/%s.wav" % n))
 
 # 1 s noise loops made at start-up: low rumble for rough asphalt and the shoulder, hiss for wet tyres
@@ -837,7 +843,7 @@ func resume() -> void:
 	menu.hide_all()
 
 func _set_paused_audio(p: bool) -> void:
-	for pl in [a_engine, a_rumble, a_hiss, a_rain]:
+	for pl in [a_engine, a_rumble, a_hiss, a_rain, a_roof]:
 		pl.stream_paused = p
 
 # the menu changed one option: rebuild the trip and remember the choice
@@ -991,9 +997,9 @@ func _land(zr_v: float) -> void:
 	land_t = 0.6
 	land_k = k
 	n_jumps += 1
-	sfx["hole"].pitch_scale = 0.7   # a deeper thud than a pothole
-	sfx["hole"].volume_db = linear_to_db(0.2 + 0.55 * k)
-	_sfx("hole")
+	sfx["pouso"].pitch_scale = randf_range(0.92, 1.05)   # the springs bottoming out, a deeper thud than a pothole
+	sfx["pouso"].volume_db = linear_to_db(0.2 + 0.55 * k)
+	_sfx("pouso")
 	if cam == 1 and has_car_scr and wet_k > 0.35:   # wet road: both wheels throw a little spray
 		for i in int(10 + 20 * k):
 			var side := -1.0 if i % 2 else 1.0
@@ -1455,12 +1461,14 @@ func _process(dt: float) -> void:
 		if wip_phase <= 0.0:
 			wip_wait -= dt
 		if wip_phase > 0.0 or wip_wait <= 0.0:
+			var ph0 := wip_phase
 			wip_phase += dt / 1.5
+			if cam == 0 and (ph0 <= 0.0 or (ph0 < 0.5 and wip_phase >= 0.5)):   # one swish up the glass, one back down
+				sfx["wiper"].pitch_scale = 1.0 if ph0 <= 0.0 else 0.94
+				_sfx("wiper")
 			if wip_phase >= 1.0:
 				wip_phase = 0.0
 				wip_wait = (1.0 - rain) * 5.0
-				if cam == 0:
-					_sfx("wiper")
 			wip_s = sin(wip_phase * PI)
 	wip_a = lerpf(-0.1, -2.05, wip_s)
 	if wip_a != wip_prev:
@@ -1483,7 +1491,8 @@ func _process(dt: float) -> void:
 
 	# audio follows the drive
 	if started:
-		a_rain.volume_db = linear_to_db(maxf(rain * 0.09, 0.0001))
+		a_rain.volume_db = linear_to_db(maxf(rain * (0.06 if cam == 0 else 0.09), 0.0001))   # from the cockpit the roof covers the road
+		a_roof.volume_db = linear_to_db(maxf(rain * (0.11 if cam == 0 else 0.025), 0.0001))
 		a_engine.volume_db = linear_to_db(0.05 + sp * 0.03)
 		# four-speed box: revs climb within each gear and sag at every shift
 		# at a steady speed an old car shifts up early instead of holding the top of a gear

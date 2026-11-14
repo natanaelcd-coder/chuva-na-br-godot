@@ -8,6 +8,10 @@ extends Node
 #   do morro. Estática leve variando, letreiro piscando quando o sinal some, aviso discreto quando o sinal volta.
 # - Quatro músicas por estação (tools/audio/build_music.js gera as novas) e a fita K7 do Besouro: uma quarta
 #   "estação" com lado A e B, rolos girando, chiado de fita e as músicas que você ouviu inteiras no rádio, gravadas.
+# - Locução gravada (ElevenLabs, tools/ai/vozes_radio.py): cada estação tem a voz do seu locutor (Seu Arlindo, a DJ
+#   Caiçara, o Valdo) e as falas do letreiro que têm gravação vão ao ar faladas, no mesmo bus do rádio (filtro de
+#   recepção, chiado, volume do rádio nos ajustes), com o fundo musical abaixando enquanto a voz fala. Recado,
+#   previsão, hora certa e chamada de música escolhem entre as falas gravadas; sem o arquivo, volta ao texto de antes.
 # game.gd guarda só o que o resto lê: radio_st, static_t, STATIONS (que este arquivo preenche) e a_music.
 
 const TRACKS := [   # file, artist, title, station
@@ -36,6 +40,9 @@ const RADIOS := [
 	{"id": "noite", "name": "NOITE AM 1040", "short": "NOITE AM", "band": "AM", "label": 2, "jingle": "vinheta_noite", "bed": "fundo_noite",
 		"home": {"terra": 0.9, "br": 0.9, "expressa": 0.9}, "tower": 0.0, "dj": "VALDO VOZ DE VELUDO"},
 ]
+const VOZ_DIR := "res://assets/audio/voz/%s.ogg"
+const VOZ_GAIN_DB := -7.0     # the voices are mastered hotter than the songs
+const VOZ_INDEX := preload("res://scripts/radio_vozes.gd")
 const FITA := {"id": "fita", "name": "FITA K7", "short": "FITA", "band": "K7", "label": 5}
 
 const SLOGANS := [
@@ -49,13 +56,13 @@ const SLOGANS := [
 		"SERRA FM INFORMA: A QUERMESSE DA CAPELA DE SÃO BENEDITO É SÁBADO. TEM BINGO, QUENTÃO E O LEILÃO DE UM FRANGO ASSADO.",
 		"CURIOSIDADE DA SERRA: ARAUCÁRIA LEVA UNS VINTE ANOS PRA DAR PINHÃO. PACIÊNCIA É COM ELA MESMA."],
 	["LITORAL FM 102,3: O SOM QUE TEM CHEIRO DE MARESIA!", "LITORAL FM: ABRE A JANELA E AUMENTA O VOLUME!",
-		"TÁ NA LITORAL, TÁ DE CHINELO. 102,3!", "ALÔ, GALERA DA ESTRADA! AQUI É O DJ CAIÇARA, DIRETO DO ESTÚDIO PÉ NA AREIA.",
+		"TÁ NA LITORAL, TÁ DE CHINELO. 102,3!", "ALÔ, GALERA DA ESTRADA! AQUI É A DJ CAIÇARA, DIRETO DO ESTÚDIO PÉ NA AREIA.",
 		"BOLETIM DAS ONDAS: MAR DE ALMÔNDEGA NO CANTO ESQUERDO. PERFEITO PRA NINGUÉM.",
 		"PROMOÇÃO LITORAL FM: O DÉCIMO OUVINTE QUE BUZINAR AGORA... NÃO GANHA NADA, MAS FICA FELIZ. BIBI!",
-		"O DJ CAIÇARA AVISA: PROTETOR SOLAR NO NARIZ E COTOVELO PRA DENTRO, QUE O VIZINHO DE FAIXA AGRADECE.",
+		"A DJ CAIÇARA AVISA: PROTETOR SOLAR NO NARIZ E COTOVELO PRA DENTRO, QUE O VIZINHO DE FAIXA AGRADECE.",
 		"LITORAL FM 102,3: A ÚNICA RÁDIO COM AREIA DENTRO DO MICROFONE.",
 		"CURIOSIDADE DA LITORAL: O CARANGUEJO ANDA DE LADO E NUNCA LEVOU MULTA. FICA A REFLEXÃO.",
-		"PERGUNTA DO DIA DO DJ CAIÇARA: BISCOITO OU BOLACHA? MANDE SUA RESPOSTA POR POMBO-CORREIO. A GENTE NÃO VAI LER."],
+		"PERGUNTA DO DIA DA DJ CAIÇARA: BISCOITO OU BOLACHA? MANDE SUA RESPOSTA POR POMBO-CORREIO. A GENTE NÃO VAI LER."],
 	["NOITE AM 1040: A COMPANHIA DE QUEM NÃO DORME.", "NOITE AM, DE CORAÇÃO PARA CORAÇÃO, DE FAROL PARA FAROL.",
 		"AM 1040: O CHIADO É CHARME.", "BOA NOITE, MOTORISTA. AQUI É O VALDO, VOZ DE VELUDO, SEGURANDO A MADRUGADA COM VOCÊ.",
 		"PRA QUEM TÁ NA BOLEIA: MANTÉM O CAFÉ QUENTE E O CORAÇÃO MAIS AINDA.",
@@ -157,6 +164,13 @@ var a_hiss: AudioStreamPlayer
 var a_click: AudioStreamPlayer
 var bed_on := false
 var audio_ready := false
+var a_voice: AudioStreamPlayer
+var voz_text := {}             # "station|text on the strip" -> recorded line (slogans, ads, road news)
+var voz_kind := {}             # "station|kind" -> recorded lines to pick from (recado, tempo, hora, intro)
+var voz_streams := {}          # file -> AudioStream, loaded the first time it airs
+var voice_file := ""           # what a_voice is playing
+var duck := 0.0                # 0..1: the bed and jingle dip under the voice
+var _picked: Dictionary = {}   # the recorded line _line() chose, if any
 
 
 func _ready() -> void:
@@ -173,13 +187,14 @@ func _ready() -> void:
 		var s: AudioStreamOggVorbis = load("res://assets/audio/%s.ogg" % n)
 		s.loop = n.begins_with("fundo")
 		sounds[n] = s
+	_index_voices()
 	for i in [5, 6]:
 		g.tex["label%d" % i] = load("res://assets/sprites/label%d.png" % i)
 	heard = Array(g.store_get("radio", "ouvidas", []))
 	fita_a = Array(g.store_get("radio", "fita_a", FITA_START.duplicate()))
 	fita_b = Array(g.store_get("radio", "fita_b", []))
 	for i in RADIOS.size():
-		var p := {"kind": "song", "song": -1, "t": 0.0, "dur": 1.0, "items": [], "ti": 0, "tt": 0.0, "tdur": 0.0, "text": "", "next": -1, "breaks": 0}
+		var p := {"kind": "song", "song": -1, "t": 0.0, "dur": 1.0, "items": [], "ti": 0, "tt": 0.0, "tdur": 0.0, "text": "", "next": -1, "breaks": 0, "voice": {}, "vdelay": 0.0}
 		_start_song(p, i, _pick_song(p, i))
 		p.t = rng.randf_range(0.0, p.dur * 0.6)   # the stations were on the air before we got here
 		prog.append(p)
@@ -206,6 +221,7 @@ func _ensure_audio() -> bool:
 	g.a_music.bus = "Radio"
 	a_bed = _player("Radio")
 	a_jingle = _player("Radio")
+	a_voice = _player("Radio")
 	a_click = _player("Master")
 	a_click.stream = sounds["k7_clique"]
 	a_static = _player("Master")
@@ -252,6 +268,65 @@ func _noise(crackly: bool) -> AudioStreamWAV:
 	st.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	st.loop_end = n
 	return st
+
+
+# ---------------------------------------------------------------- the announcers' voices
+
+# only lines whose file is really there count: without them the station is text on the strip, as before
+func _index_voices() -> void:
+	for e in VOZ_INDEX.VOZES:
+		if not ResourceLoader.exists(VOZ_DIR % e.file):
+			continue
+		if e.kind in ["slogan", "ad", "estrada"]:
+			voz_text["%d|%s" % [e.st, e.tela]] = e
+		else:
+			var k := "%d|%s" % [e.st, e.kind]
+			if not voz_kind.has(k):
+				voz_kind[k] = []
+			voz_kind[k].append(e)
+
+func has_voice(si: int, kind: String) -> bool:
+	return voz_kind.has("%d|%s" % [si, kind])
+
+func _voices(si: int, kind: String, key: String, value) -> Array:   # recorded lines of a kind, filtered by one field
+	var out: Array = []
+	for e in voz_kind.get("%d|%s" % [si, kind], []):
+		if key == "" or e.get(key) == value:
+			out.append(e)
+	return out
+
+func voice_stream(file: String) -> AudioStream:
+	if not voz_streams.has(file):
+		var st: AudioStream = load(VOZ_DIR % file)
+		if st is AudioStreamOggVorbis:
+			st.loop = false
+		voz_streams[file] = st
+	return voz_streams[file]
+
+# keep a_voice on what the tuned station is saying right now (joining mid-line starts mid-line, like the songs)
+func _voice_step(si: int) -> void:
+	var want := ""
+	var at := 0.0
+	if si >= 0:
+		var p: Dictionary = prog[si]
+		var e: Dictionary = p.get("voice", {})
+		if p.kind == "talk" and not e.is_empty():
+			at = p.tt - float(p.vdelay)
+			if at >= 0.0 and at < float(e.dur) - 0.25:
+				want = e.file
+	if want == "":
+		if voice_file != "" and not a_voice.playing:
+			voice_file = ""
+		elif voice_file != "" and (si < 0 or prog[si].kind != "talk" or prog[si].get("voice", {}).get("file", "") != voice_file):
+			a_voice.stop()
+			voice_file = ""
+		return
+	if want != voice_file or not a_voice.playing:
+		if want == voice_file and at > 0.3:   # it just finished on its own: don't start it again
+			return
+		a_voice.stream = voice_stream(want)
+		a_voice.play(at)
+		voice_file = want
 
 
 # ---------------------------------------------------------------- stations
@@ -312,6 +387,8 @@ func radio_tune() -> void:
 	g.a_music.stop()
 	g.a_music.pitch_scale = 1.0
 	a_bed.stop()
+	a_voice.stop()
+	voice_file = ""
 	bed_on = false
 	tuned_from_start = false
 	var c := cur()
@@ -424,21 +501,39 @@ func _start_break(p: Dictionary, si: int) -> void:
 	_set_text(p, si)
 
 func _set_text(p: Dictionary, si: int) -> void:
-	p.text = _line(p.items[p.ti], si, p)
+	_picked = {}
+	var kind: String = p.items[p.ti]
+	p.text = _line(kind, si, p)
 	p.tt = 0.0
 	# long lines scroll through the 428 px strip at 30 px/s after a 2 s pause: give each one pass plus a beat
 	var w: float = (RADIOS[si].short.length() + 4 + p.text.length()) * 8.0
 	p.tdur = maxf(6.0, 2.0 + maxf(0.0, w - 420.0) / 30.0 + 2.5)
+	# a recorded line: it starts after the jingle (first of the break) or a bit into the pips, and the strip waits for it
+	p.voice = _picked
+	p.vdelay = 0.4
+	if p.ti == 0:
+		p.vdelay = sounds[RADIOS[si].jingle].get_length() - 1.0   # over the tail of the jingle, which ducks
+	elif kind == "hora":
+		p.vdelay = 1.6
+	if not _picked.is_empty():
+		p.tdur = maxf(p.tdur, p.vdelay + float(_picked.dur) + 0.7)
 
 func _line(kind: String, si: int, p: Dictionary) -> String:
 	match kind:
 		"slogan":
-			return SLOGANS[si][_bag("slogan%d" % si, SLOGANS[si].size())]
+			return _said(si, SLOGANS[si][_bag("slogan%d" % si, SLOGANS[si].size())])
 		"ad":
 			if rng.randf() < 0.3:
-				return "PROPAGANDA: " + ADS_ST[si][_bag("adst%d" % si, ADS_ST[si].size())]
+				return "PROPAGANDA: " + _said(si, ADS_ST[si][_bag("adst%d" % si, ADS_ST[si].size())])
+			if not voz_text.is_empty():   # with the voices, each station has its own sponsors, read by its announcer
+				var mine := range(si, ADS.size(), 3)
+				return "PROPAGANDA: " + _said(si, ADS[mine[_bag("ad%d" % si, mine.size())]])
 			return "PROPAGANDA: " + ADS[_bag("ad", ADS.size())]
 		"recado":
+			if has_voice(si, "recado"):   # one of the messages the announcer recorded
+				var rl := _voices(si, "recado", "", null)
+				_picked = rl[_bag("recado%d" % si, rl.size())]
+				return _picked.tela
 			return "RECADO DE OUVINTE: ALÔ, %s %s! %s. QUEM MANDA É %s." % [WHO[_bag("who", WHO.size())], WHERE[_bag("where", WHERE.size())],
 				MSG[_bag("msg", MSG.size())], FROM[_bag("from", FROM.size())]]
 		"hora":
@@ -447,12 +542,20 @@ func _line(kind: String, si: int, p: Dictionary) -> String:
 			return previsao(si)
 		"estrada":
 			var l: Array = ROAD_NEWS[g.cfg.road]
-			return l[_bag("road_" + g.cfg.road, l.size())]
+			return _said(si, l[_bag("road_" + g.cfg.road, l.size())])
 		"intro":
+			var il := _voices(si, "intro", "song", p.next)
+			if not il.is_empty():
+				_picked = il[rng.randi_range(0, il.size() - 1)]
+				return _picked.tela
 			var tr: Array = TRACKS[p.next]
 			var l2: Array = DJ_INTRO[si]
 			return l2[rng.randi_range(0, l2.size() - 1)] % [tr[1], tr[2]]
 	return ""
+
+func _said(si: int, text: String) -> String:   # a fixed line: note its recording, if there is one
+	_picked = voz_text.get("%d|%s" % [si, text], {})
+	return text
 
 func clock() -> Vector2i:   # the in-game hour, the same the GT's dash clock shows
 	var hours := fposmod(14.0 + g.tday * 6.0, 24.0)
@@ -460,6 +563,11 @@ func clock() -> Vector2i:   # the in-game hour, the same the GT's dash clock sho
 
 func hora_certa(si: int) -> String:
 	var c := clock()
+	var per := "madrugada" if c.x < 5 else ("manha" if c.x < 12 else ("tarde" if c.x < 18 else "noite"))
+	var hl := _voices(si, "hora", "period", per)
+	if not hl.is_empty():   # the recorded time signal says the station and a greeting; the strip shows the clock
+		_picked = hl[0]
+		return _picked.tela % ("%02dH%02d" % [c.x, c.y])
 	var hh := "%d HORAS" % c.x if c.x != 1 else "1 HORA"
 	if c.x == 0:
 		hh = "MEIA-NOITE"
@@ -496,6 +604,19 @@ func previsao(si: int) -> String:
 		tip = ["ÓCULOS ESCUROS E COTOVELO PRA DENTRO", "SOL BAIXO NO OLHO: QUEBRA-SOL ABAIXADO", "FAROL LIGADO E OLHO NO ACOSTAMENTO", "DEVAGAR NA NEBLINA, QUE ELA PASSA"][period]
 		if g.cfg.road == "terra":
 			tip += ". E A POEIRA VERMELHA? FAZ PARTE"
+	var vc := ""   # the recorded forecasts: sunny day, clear night, rain, changeable
+	var clima = g.get_node_or_null("mundo_clima")
+	var turning: bool = clima != null and clima.get("phase") in ["nublando", "abrindo"]
+	if g.cfg.weather == "chuva" or rain > 0.2:
+		vc = "variavel" if goal < rain - 0.08 else "chuva"
+	elif turning or goal > rain + 0.08 or (g.cfg.weather == "variavel" and rng.randf() < 0.5):
+		vc = "variavel"
+	else:
+		vc = "sol" if period == 0 else "noite"
+	var tl := _voices(si, "tempo", "cond", vc)
+	if not tl.is_empty():
+		_picked = tl[0]
+		return _picked.tela
 	var temp: int = [27, 22, 16, 14][period] - (5 if rain > 0.3 else 0) - (3 if g.cfg.road == "terra" else 0) + rng.randi_range(-1, 2)
 	match si:
 		0:
@@ -664,6 +785,8 @@ func _process(dt: float) -> void:
 		var wow := 0.004 * sin(g.t * TAU * 0.55) + 0.0015 * sin(g.t * TAU * 6.3)
 		g.a_music.pitch_scale = 1.0 + wow
 	radio_now_playing()
+	_voice_step(g.radio_st if on_radio else -1)
+	duck = move_toward(duck, 1.0 if a_voice.playing else 0.0, dt * (5.0 if a_voice.playing else 1.5))
 
 	# reception: music never cuts out, static comes and goes
 	q_raw = _reception(c)
@@ -684,9 +807,10 @@ func _process(dt: float) -> void:
 	var tape_on: bool = not c.is_empty() and c.id == "fita"
 	a_hiss.volume_db = linear_to_db(0.035) if tape_on else -80.0
 	var music := 0.0001 if tuning else (0.55 + 0.45 * q if on_radio else 1.0)
-	g.a_music.volume_db = linear_to_db(music)
-	a_bed.volume_db = linear_to_db(maxf(0.0001, music * 0.8))
-	a_jingle.volume_db = linear_to_db(maxf(0.0001, music))
+	g.a_music.volume_db = linear_to_db(maxf(0.0001, music * (1.0 - 0.6 * duck)))
+	a_bed.volume_db = linear_to_db(maxf(0.0001, music * 0.8 * (1.0 - 0.6 * duck)))   # ducking: the bed dips under the voice
+	a_jingle.volume_db = linear_to_db(maxf(0.0001, music * (1.0 - 0.5 * duck)))
+	a_voice.volume_db = linear_to_db(maxf(0.0001, music)) + VOZ_GAIN_DB
 	if on_radio:
 		bus_lp.cutoff_hz = lerpf(1700.0, 3400.0, q) if c.band == "AM" else lerpf(2600.0, 12000.0, q * q)
 	else:

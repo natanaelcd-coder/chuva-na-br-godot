@@ -74,6 +74,8 @@ func _route() -> void:
 		return
 	g.a_music.bus = "Radio"
 	g.a_rain.bus = "Chuva"
+	if g.a_roof:
+		g.a_roof.bus = "Chuva"
 	for p in [g.a_engine, g.a_rumble, g.a_hiss]:
 		p.bus = "Motor"
 	for k in g.sfx:

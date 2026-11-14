@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """ElevenLabs:
-  eleven.py tts OUT.mp3 VOICE_ID "texto"   [--model eleven_multilingual_v2]
+  eleven.py tts OUT.mp3 VOICE_ID "texto"   [--model eleven_multilingual_v2] [--stability 0.45] [--style 0.35]
+                                           [--speed 1.0] [--prev "fala anterior"] [--next "fala seguinte"]
   eleven.py sfx OUT.mp3 SECONDS "description" [--loop]
 The key comes from ELEVENLABS_API_KEY or is injected by the session's network secrets."""
 import json, os, sys, urllib.request
@@ -17,11 +18,16 @@ def post(path, body):
 
 a = sys.argv[1:]
 kind, out = a[0], a[1]
+def opt(name, default):
+    return a[a.index(name) + 1] if name in a else default
 if kind == "tts":
-    model = a[a.index("--model") + 1] if "--model" in a else "eleven_multilingual_v2"
-    data = post(f"/v1/text-to-speech/{a[2]}?output_format=mp3_44100_128",
-                {"text": a[3], "model_id": model, "language_code": "pt",
-                 "voice_settings": {"stability": 0.45, "similarity_boost": 0.8, "style": 0.35}})
+    body = {"text": a[3], "model_id": opt("--model", "eleven_multilingual_v2"), "language_code": "pt",
+            "voice_settings": {"stability": float(opt("--stability", 0.45)), "similarity_boost": 0.8,
+                               "style": float(opt("--style", 0.35)), "speed": float(opt("--speed", 1.0))}}
+    for k in ("prev", "next"):   # context for the intonation, not spoken
+        if f"--{k}" in a:
+            body["previous_text" if k == "prev" else "next_text"] = opt(f"--{k}", "")
+    data = post(f"/v1/text-to-speech/{a[2]}?output_format=mp3_44100_128", body)
 else:
     data = post("/v1/sound-generation?output_format=mp3_44100_128",
                 {"text": a[3], "duration_seconds": float(a[2]), "prompt_influence": 0.5, "loop": "--loop" in a})
