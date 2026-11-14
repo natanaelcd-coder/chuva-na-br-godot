@@ -184,6 +184,7 @@ func _run() -> void:
 	await step(30)
 	g._hit_feat({"t": 0, "x": g.px + 0.01, "w": 0.07}, 0.7)
 	check(mn.trip.get("ENTRE AS RODAS", 0) == 1, "between the wheels")
+	mn.last_hole_hit = -10.0   # a real pothole hit by chance in the last second would (rightly) cancel the award
 	for e in mn.hist:   # the hole was in our path a moment ago, then we moved over
 		e[1] = g.px + 0.5
 	g._hit_feat({"t": 0, "x": g.px + 0.4, "w": 0.1}, 0.7)

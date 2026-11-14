@@ -66,8 +66,11 @@ func _run() -> void:
 	g.set_auto(true)
 	g.set_cam(0)
 	g.clean = 120.0
-	await step(30 * 60)
 	var pas = g.get_node("passageiro")
+	for i in 75 * 60:   # up to 75 s: one pothole on the way restarts the doze, so give it room
+		await process_frame
+		if pas.sleep > 0.8:
+			break
 	check(pas.sleep > 0.8, "vó asleep after smooth driving (sleep %.2f)" % pas.sleep)
 	g.hud.toast_t = 0.0
 	await shot("cab_vo_dormindo")
