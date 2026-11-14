@@ -1,7 +1,7 @@
 class_name AnimTex
 extends Texture2D
 # A Texture2D that flips frames by itself: used by the PixelLab characters and animals (people at the bus stop, herd,
-# cyclist, cows). The frames sit side by side in assets/sprites/<name>_anim.png; <name>.png is frame 0 and the fallback:
+# cyclist, cows, horse, dog, hens, tractor, cart). The frames sit side by side in assets/sprites/<name>_anim.png; <name>.png is frame 0 and the fallback:
 # if the strip does not exist, load_sprite() just returns the plain sprite. Anything that draws a texture
 # (draw_texture_rect, draw_texture_rect_region...) works as before, the current frame is picked at draw time.
 
@@ -12,13 +12,18 @@ const CFG := {
 	"gente2": {"fps": 1.4, "phase": 1.7},
 	"pessoa_frentista": {"fps": 3.0, "seq": [0, 1, 2, 3, 4, 3, 2, 1], "phase": 0.0},
 	"pessoa_balc": {"fps": 1.6, "phase": 0.5},
-	"pessoa_vend": {"fps": 1.4, "phase": 0.2},
-	"pessoa_atend": {"fps": 1.5, "phase": 0.8},
+	"pessoa_vend": {"fps": 2.4, "phase": 0.2},    # 9 frames: breathing, a slow blink at each end of the ping-pong
+	"pessoa_atend": {"fps": 2.4, "phase": 0.8},
 	"boiada0": {"fps": 4.5, "phase": 0.0},
 	"boiada1": {"fps": 4.5, "phase": 0.35},
 	"ciclista": {"fps": 7.0, "phase": 0.0},
-	"vaca0": {"fps": 1.6, "phase": 0.0},
-	"vaca1": {"fps": 1.3, "phase": 0.8},
+	"vaca0": {"fps": 5.0, "phase": 0.0},     # grazing: the head bobs, the tail swishes
+	"vaca1": {"fps": 4.2, "phase": 0.8},
+	"cavalo": {"fps": 4.5, "phase": 0.3},
+	"caramelo": {"fps": 7.0, "phase": 0.0},  # wagging tail, panting
+	"galinhas": {"fps": 4.0, "phase": 0.4},  # three hens pecking
+	"trator": {"fps": 7.0, "phase": 0.0},    # the engine shakes it, the farmer sways
+	"carroca": {"fps": 6.0, "phase": 0.5},   # the cart bounces, the horse swishes its tail
 }
 static var _cache := {}
 
