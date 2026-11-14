@@ -3,3 +3,4 @@
 builds/
 qa/metrics/stderr.txt
 qa/metrics/metrics.json
+__pycache__/
