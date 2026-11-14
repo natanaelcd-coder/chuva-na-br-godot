@@ -17,7 +17,10 @@ html = html.replace(hook, 'window.__H = { GL, ACC, ACM, R, poly, circ, rr, mk, t
   for (const f of fs.readdirSync(__dirname).filter(f => /^art_.+\.js$/.test(f)).sort())
     await p.addScriptTag({ content: fs.readFileSync(path.join(__dirname, f), 'utf8') });
   const imgs = await p.evaluate(() => Object.fromEntries(Object.entries(window.ART).map(([k, c]) => [k, c.toDataURL('image/png')])));
-  for (const [k, d] of Object.entries(imgs)) fs.writeFileSync(path.join(root, 'assets/sprites', k + '.png'), Buffer.from(d.split(',')[1], 'base64'));
+  // sprites redrawn with AI (PixelLab) are listed one per line in tools/art/ia_*.txt and are never overwritten here
+  const keep = new Set(fs.readdirSync(__dirname).filter(f => /^ia_.+\.txt$/.test(f))
+    .flatMap(f => fs.readFileSync(path.join(__dirname, f), 'utf8').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'))));
+  for (const [k, d] of Object.entries(imgs)) if (!keep.has(k)) fs.writeFileSync(path.join(root, 'assets/sprites', k + '.png'), Buffer.from(d.split(',')[1], 'base64'));
   console.log(Object.keys(imgs).length, 'sprites:', Object.keys(imgs).join(' '));
   if (process.argv[2]) {   // contact sheet on a mid-grey background for a quick look
     const sheet = await p.evaluate(names => {
