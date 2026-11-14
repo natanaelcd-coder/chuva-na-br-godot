@@ -469,7 +469,7 @@ func _populate() -> void:
 func _populate_br() -> void:
 	var trees := ["tree0", "tree1", "araucaria", "araucaria"]
 	for i in range(0, N, 14):
-		_add_spr(i, "pole", 1.42, 1100.0, 1)
+		_add_spr(i, "pole", 1.42, 1300.0, 1)
 	for i in N:
 		if randf() < 0.22:
 			_add_spr(i, trees.pick_random(), randf_range(1.9, 5.5), randf_range(1500, 2400))
@@ -487,12 +487,12 @@ func _populate_br() -> void:
 func _populate_terra() -> void:
 	var kinds := ["cafe", "pasto", "eucalipto", "mata"]
 	for i in range(0, N, 28):
-		_add_spr(i, "pole", 1.5, 1000.0, 1)
+		_add_spr(i, "pole", 1.5, 1200.0, 1)
 	for i in N:
 		var zone: String = kinds[(i / 110 + 1) % 4]
 		for side in [-1.0, 1.0]:
 			if i % 3 == 0 and zone != "mata":
-				_add_spr(i, "cerca", side * 1.28, 700.0)
+				_add_spr(i, "cerca", side * 1.28, 600.0)
 			match zone:
 				"cafe":
 					if i % 4 == 0:
@@ -524,7 +524,7 @@ func _populate_terra() -> void:
 # the expressway: lit median, sound walls through towns, gantries, LED panels and SOS phones
 func _populate_expressa() -> void:
 	for i in range(0, N, 8):
-		_add_spr(i, "luminaria", -1.1, 1900.0, 6)
+		_add_spr(i, "luminaria", -1.1, 2150.0, 6)
 	for i in N:
 		var town: bool = (i / 260) % 3 == 1
 		if town and i % 2 == 0:

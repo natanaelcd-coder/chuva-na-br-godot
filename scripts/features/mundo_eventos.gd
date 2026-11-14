@@ -173,8 +173,12 @@ func start(id: String) -> void:
 	if not sky.is_empty():
 		_say()
 
+const CAR_WW := {"peao": 700.0, "romeiros": 760.0, "kombi_pamonha": 820.0, "kombi_som": 820.0}   # world width per sprite (default 900); the PixelLab art has other proportions
+
 func _car(z: float, x: float, v: float, tex: String) -> Dictionary:
 	var c := {"z": fposmod(z, g.TRACK), "x": x, "v": v, "tex": tx(tex), "dir": 1, "evento": cur}
+	if CAR_WW.has(tex):
+		c.ww = CAR_WW[tex]
 	g.cars.append(c)
 	e_cars.append(c)
 	return c
@@ -296,13 +300,11 @@ func draw_sky(w: Node2D, hy: float) -> void:
 		"balao":
 			var x := fposmod(sky.x - g.sky * 0.3, 520.0) - 60.0
 			var a := clampf(sky.life / 6.0, 0.0, 1.0) * clampf((70.0 - sky.life) / 4.0, 0.0, 1.0)
-			w.draw_texture_rect(tx("balao"), Rect2(roundf(x), roundf(sky.y), 12.0, 17.0), false, Color(1, 1, 1, a))
+			w.draw_texture_rect(tx("balao"), Rect2(roundf(x), roundf(sky.y), 13.0, 16.6), false, Color(1, 1, 1, a))
 		"helicoptero":
 			var x: float = sky.x - fposmod(g.sky * 0.3, 1.0)
 			var y: float = sky.y + sin(g.t * 1.3) * 1.5
-			w.draw_texture_rect(tx("helicoptero"), Rect2(roundf(x), roundf(y), 20.0, 9.0), false)
-			var blade := 9.0 if int(g.t * 20.0) % 2 == 0 else 5.0   # the rotor flickering
-			w.draw_rect(Rect2(x + 10.0 - blade, y, blade * 2.0, 0.5), Color(0.1, 0.1, 0.12, 0.8))
+			w.draw_texture_rect(tx("helicoptero"), Rect2(roundf(x), roundf(y), 24.0, 13.5), false)
 		"periquitos":
 			var col := Color(0.35, 0.78, 0.3) if g.e_amb > 0.7 else Color(0.08, 0.1, 0.1)   # green by day, silhouettes at dusk
 			for b in sky.birds:
