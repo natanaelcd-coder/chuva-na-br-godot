@@ -91,7 +91,7 @@ var arrived_km := 0.0
 func _ready() -> void:
 	g = get_parent()
 	for n in ART:
-		g.tex[n] = load("res://assets/sprites/%s.png" % n)
+		g.tex[n] = AnimTex.load_sprite(n)
 	g.setup_done.connect(_on_setup)
 	g.trip_started.connect(_on_start)
 	dest_k = int(g.store_get("estrada", "destino", 0))

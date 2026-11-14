@@ -39,6 +39,13 @@ const GREET := {   # [day, dusk, night, dawn]
 	"loja": ["ATENDENTE: BOM DIA! O CAFÉ SAI NA HORA.", "ATENDENTE: BOA TARDE! TEM MISTO SAINDO.", "ATENDENTE: BOA NOITE! O CALDINHO TÁ QUENTE.", "ATENDENTE: AQUI É 24 HORAS. FIQUE À VONTADE."],
 }
 const CAR_X := {"venda": 118.0, "posto": 114.0, "loja": 96.0}     # where your car sits in the forecourt
+# The people at each stop (PixelLab, animated by AnimTex): sprite, centre x, bottom y, rows cut from the bottom (behind the
+# counter). They need parada_<kind>_sem.png (the scene without the old painted people); without them the old scene is used.
+const PEOPLE := {
+	"venda": [{"n": "pessoa_vend", "x": 238.0, "bottom": 149.0, "cut": 14}],
+	"posto": [{"n": "pessoa_frentista", "x": 98.0, "bottom": 143.0, "cut": 0}, {"n": "pessoa_balc", "x": 172.0, "bottom": 150.0, "cut": 0}],
+	"loja": [{"n": "pessoa_atend", "x": 160.0, "bottom": 149.0, "cut": 14}],
+}
 const ITEM_X := {"venda": 98.0, "posto": 140.0, "loja": 100.0}   # where what you ordered lands on the counter
 const SIGN_COL := {"venda": Color("c22630"), "posto": Color("c22630"), "loja": Color("3fe0e8")}
 const OUT := Rect2(12, 22, 252, 124)   # the view outside, in logical units (the scene PNG is clear there)
@@ -54,6 +61,7 @@ var layer: CanvasLayer
 var art: Node2D
 var ui: Node2D
 var scenes := {}
+var people := {}   # kind -> [[AnimTex or Texture2D, entry]]; empty: the scene still has its painted people
 var food_tex := {}
 var active := false
 var leaving := false
@@ -79,6 +87,13 @@ func _ready() -> void:
 	g = get_parent()
 	for k in ["venda", "posto", "loja"]:
 		scenes[k] = load("res://assets/sprites/parada_%s.png" % k)
+		var ps := []
+		for e in PEOPLE[k]:
+			if ResourceLoader.exists("res://assets/sprites/%s.png" % e.n):
+				ps.append([AnimTex.load_sprite(e.n), e])
+		if ps.size() == PEOPLE[k].size() and ResourceLoader.exists("res://assets/sprites/parada_%s_sem.png" % k):
+			scenes[k] = load("res://assets/sprites/parada_%s_sem.png" % k)
+			people[k] = ps
 	for id in FOODS:
 		food_tex[id] = load("res://assets/sprites/lanche_%s.png" % id)
 	layer = CanvasLayer.new()
@@ -318,6 +333,13 @@ func _draw_art() -> void:
 			var ph := fmod(t * 1.3 + x * 0.37, 1.0)
 			art.draw_rect(Rect2(x, 22 + ph * ph * 120.0, 0.5, 2.5), Color(0.8, 0.88, 0.95, 0.8))
 	art.draw_texture_rect(scenes[kind], Rect2(0, 0, 384, 216), false)
+	for pe in people.get(kind, []):
+		var pt: Texture2D = pe[0]
+		var e: Dictionary = pe[1]
+		var pw := float(pt.get_width())
+		var ph := float(pt.get_height() - e.cut)
+		var lit := Color(1, 1, 1, 1).lerp(Color(g.e_amb, g.e_amb, g.e_amb * 1.05), 0.2)
+		art.draw_texture_rect_region(pt, Rect2(roundf(e.x - pw / 2.0), e.bottom - ph, pw, ph), Rect2(0, 0, pw, ph), lit)
 	var shown: Array = ordered.slice(maxi(0, ordered.size() - 3))
 	for k in shown.size():
 		var id: String = shown[k]

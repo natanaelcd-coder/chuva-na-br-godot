@@ -63,8 +63,10 @@ function person(c, x, y, o) {
   }
 }
 
+// SEM = the same three scenes without the people: the game then draws the animated PixelLab ones (parada.gd)
+for (const SEM of [false, true]) { const sfx = SEM ? '_sem' : '';
 /* ================= VENDA (Estrada do Sítio): wood, clay tiles, cheese and doce de leite ================= */
-OUT.parada_venda = mk(W, H, c => {
+OUT['parada_venda' + sfx] = mk(W, H, c => {
   // roof: rafters and the clay-tile edge
   R(c, '#2b1a12', 0, 0, W, 16);
   for (let x = 4; x < W; x += 22) { R(c, '#4a2d1c', x, 0, 6, 16); R(c, '#6e4526', x, 0, 1, 16); }
@@ -87,7 +89,7 @@ OUT.parada_venda = mk(W, H, c => {
   R(c, '#4a2d1c', 12, 118, 252, 3); R(c, '#6e4526', 12, 118, 252, 1);
   for (let x = 20; x < 262; x += 18) R(c, '#4a2d1c', x, 121, 2, 25);
   // Seu Zé behind the counter, by the wall
-  person(c, 238, 78, { shirt: '#c22630', shirt2: '#7a1620', plaid: '#7a1620', hair: '#4a4d57', hat: 'palha', mustache: true, skin: '#c68a5a', sk2: '#96643a' });
+  if (!SEM) person(c, 238, 78, { shirt: '#c22630', shirt2: '#7a1620', plaid: '#7a1620', hair: '#4a4d57', hat: 'palha', mustache: true, skin: '#c68a5a', sk2: '#96643a' });
   // counter: old peroba wood
   counter(c, '#96643a', '#c68a5a', '#4a2d1c', '#2b1a12', '#2b1a12');
   for (let x = 6; x < W; x += 24) { R(c, '#6e4526', x, 160, 14, .7); R(c, '#6e4526', x + 4, 186, 10, .7); }
@@ -104,7 +106,7 @@ OUT.parada_venda = mk(W, H, c => {
 });
 
 /* ================= POSTO (BR-116): tiles, the glass warmer and the cane press ================= */
-OUT.parada_posto = mk(W, H, c => {
+OUT['parada_posto' + sfx] = mk(W, H, c => {
   // concrete canopy with the red band of POSTO ESTRELA
   R(c, '#e6e8ee', 0, 0, W, 21); R(c, '#c22630', 0, 17, W, 4); R(c, '#ffd65a', 0, 17, W, 1); R(c, '#a8acb5', 0, 0, W, 1);
   for (let x = 8; x < W; x += 40) { R(c, '#fff3b0', x, 21, 20, 1.5); R(c, 'rgba(255,243,176,.35)', x - 4, 22.5, 28, 1); }   // tube lights
@@ -127,12 +129,14 @@ OUT.parada_posto = mk(W, H, c => {
     R(c, '#0a0a0f', x + 20, 116, 3, 2); line(c, '#0a0a0f', 1, [[x + 22, 117], [x + 26, 124], [x + 24, 138]]);
   }
   // frentista: orange overalls and a cap
+  if (!SEM) {
   const fx = 104, fy = 92;
   R(c, '#0a0a0f', fx - 4, fy + 44, 3, 6); R(c, '#0a0a0f', fx + 1, fy + 44, 3, 6);
   rr(c, '#f2a62a', fx - 6, fy + 12, 12, 34, 2); R(c, '#c47a1c', fx - 6, fy + 28, 12, 1.5); R(c, '#3d5f94', fx - 4, fy + 14, 8, 8); R(c, '#e6e8ee', fx - 3, fy + 16, 3, 1);
   rr(c, '#f2a62a', fx - 9, fy + 13, 4, 18, 2); rr(c, '#f2a62a', fx + 5, fy + 13, 4, 14, 2); ell(c, '#96643a', fx + 7, fy + 28, 2, 2);
   ell(c, '#96643a', fx, fy + 6, 4.5, 5.5); R(c, '#0a0a0f', fx - 2, fy + 5, 1, 1); R(c, '#0a0a0f', fx + 1.5, fy + 5, 1, 1);
   ell(c, '#c22630', fx, fy + 1.5, 5, 3); R(c, '#c22630', fx - 9, fy + 2, 8, 1.5);
+  }
   // the counter: granite top over green tiles
   counter(c, '#4a4d57', '#777b86', '#16482c', '#0c2a1c', '#0a1614');
   for (let x = 0; x < W; x += 12) R(c, '#0c2a1c', x, 182, 12, .5);
@@ -155,11 +159,11 @@ OUT.parada_posto = mk(W, H, c => {
   R(c, '#e6e8ee', 238, 128, 10, 3); ctext(c, 'CALDO', 243, 128.5, '#16482c', .4);
   R(c, '#777b86', 244, 138, 6, 8);
   // balconista with a white cap and apron
-  person(c, 172, 84, { shirt: '#e6e8ee', shirt2: '#a8acb5', apron: '#c22630', hair: '#2b1a12', hat: 'bone', cap: '#e6e8ee', capBrim: '#a8acb5', capLogo: '#c22630', skin: '#e3ab7c', sk2: '#c68a5a' });
+  if (!SEM) person(c, 172, 84, { shirt: '#e6e8ee', shirt2: '#a8acb5', apron: '#c22630', hair: '#2b1a12', hat: 'bone', cap: '#e6e8ee', capBrim: '#a8acb5', capLogo: '#c22630', skin: '#e3ab7c', sk2: '#c68a5a' });
 });
 
 /* ================= LOJA DA PARADA (Rodovia Expressa): clean, cold light, an espresso machine ================= */
-OUT.parada_loja = mk(W, H, c => {
+OUT['parada_loja' + sfx] = mk(W, H, c => {
   R(c, '#e6e8ee', 0, 0, W, 20); R(c, '#3d5f94', 0, 15, W, 5); R(c, '#3fe0e8', 0, 20, W, 1.5);
   signBand(c, '#24345f', '#e6e8ee');
   for (let x = 4; x < W; x += 30) R(c, '#cfe0f2', x, 21.5, 16, 1);
@@ -185,8 +189,10 @@ OUT.parada_loja = mk(W, H, c => {
   R(c, '#777b86', 210, 116, 8, 4); R(c, '#e6e8ee', 211, 126, 6, 6); R(c, '#7a4a10', 211.5, 127, 5, 2);
   for (let i = 0; i < 4; i++) R(c, '#e6e8ee', 236, 132 - i * 3.5, 7, 3.5); R(c, '#c47a1c', 236, 136, 7, 10);
   // atendente: blue polo and cap
-  person(c, 160, 84, { shirt: '#3d5f94', shirt2: '#24345f', stripe: '#3fe0e8', hair: '#2b1a12', hat: 'bone', cap: '#24345f', capBrim: '#1a2547', capLogo: '#3fe0e8', skin: '#96643a', sk2: '#6e4526' });
+  if (!SEM) person(c, 160, 84, { shirt: '#3d5f94', shirt2: '#24345f', stripe: '#3fe0e8', hair: '#2b1a12', hat: 'bone', cap: '#24345f', capBrim: '#1a2547', capLogo: '#3fe0e8', skin: '#96643a', sk2: '#6e4526' });
 });
+
+}
 
 /* ================= snacks (32 x 24 each) ================= */
 const snack = fn => mk(32, 24, c => { shadow(c, 16, 22, 13, 1.6); fn(c); });
