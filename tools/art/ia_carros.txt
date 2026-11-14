@@ -1,0 +1,18 @@
+# carros do jogador por fora refeitos com a PixelLab (tools/art/carros_ia.py, brutos em docs/ia/carros/)
+player
+player_picape
+player_gt
+gar_player_besouro_bege
+gar_player_besouro_branco
+gar_player_besouro_calcinha
+gar_player_besouro_laranja
+gar_player_besouro_limao
+gar_player_gt_azul
+gar_player_gt_branco
+gar_player_gt_prata
+gar_player_gt_preto
+gar_player_picape_amarela
+gar_player_picape_azul
+gar_player_picape_saia
+gar_player_picape_saia_azul
+gar_player_picape_vermelha

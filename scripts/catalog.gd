@@ -45,7 +45,7 @@ const CARS := {
 		"spring_k": 64.0, "spring_c": 4.6, "pitch_k": 80.0, "pitch_c": 9.0, "roll_k": 52.0, "roll_c": 7.5, "roll_gain": 1.0, "hole_gain": 1.0,
 		"gear_lo": [0.0, 16.0, 32.0, 52.0], "gear_hi": [16.0, 32.0, 52.0, 110.0], "eng_base": 0.9, "eng_span": 0.45,
 		"camh": 820.0, "cockpit": "cockpit", "player": "player",
-		"wheel_x": [-28.0, 19.0], "brake_x": 22.5, "brake_y": -17.0,
+		"wheel_x": [-27.1, 19.1], "wheel_w": 8.0, "brake_x": 21.5, "brake_y": -13.2,
 		# where things sit on the cabin art (tools/art/cabines_ia.py paints the faces to match): mirror/side = mirror glass
 		# rects, side_frame = colour of a door mirror drawn by code ("" = it is in the art), clock = [x, y, scale]
 		"layout": {
@@ -64,7 +64,7 @@ const CARS := {
 		"spring_k": 96.0, "spring_c": 4.9, "pitch_k": 95.0, "pitch_c": 8.0, "roll_k": 44.0, "roll_c": 5.6, "roll_gain": 1.45, "hole_gain": 1.4,
 		"gear_lo": [0.0, 20.0, 45.0], "gear_hi": [20.0, 45.0, 105.0], "eng_base": 0.72, "eng_span": 0.42,
 		"camh": 1050.0, "cockpit": "cockpit_picape", "player": "player_picape",
-		"wheel_x": [-30.0, 21.0], "brake_x": 26.5, "brake_y": -16.0,
+		"wheel_x": [-24.2, 16.7], "wheel_w": 7.5, "brake_x": 21.0, "brake_y": -13.8,
 		"layout": {
 			"wheel": [124, 178, 58], "wheel_style": "picape",
 			"speedo": [110.5, 143.5, 6.5, 120.0], "tach": [], "fuel": [139.0, 147.0, 5.0], "clock": [],
@@ -81,7 +81,7 @@ const CARS := {
 		"spring_k": 110.0, "spring_c": 10.5, "pitch_k": 120.0, "pitch_c": 13.0, "roll_k": 80.0, "roll_c": 11.5, "roll_gain": 0.7, "hole_gain": 0.8,
 		"gear_lo": [0.0, 20.0, 40.0, 65.0, 95.0], "gear_hi": [20.0, 40.0, 65.0, 95.0, 150.0], "eng_base": 1.0, "eng_span": 0.55,
 		"camh": 700.0, "cockpit": "cockpit_gt", "player": "player_gt",
-		"wheel_x": [-29.0, 20.0], "brake_x": 20.0, "brake_y": -15.0,
+		"wheel_x": [-29.7, 19.7], "wheel_w": 10.0, "brake_x": 18.3, "brake_y": -15.7,
 		"layout": {
 			"wheel": [114, 140, 46], "wheel_style": "gt",
 			"speedo": [100.0, 114.5, 9.0, 200.0], "tach": [129.5, 114.5, 9.0], "fuel": [150.0, 124.0, 3.5], "clock": [198.5, 100.5, 2.0],

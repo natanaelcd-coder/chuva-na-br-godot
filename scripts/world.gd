@@ -194,10 +194,11 @@ func _draw_player(sx: float, sy: float, s: float) -> void:
 		for side in [-1.0, 1.0]:
 			_dust(sx + side * (26.0 + 14.0 * (1.0 - a)) * k, sy - 3.0 * k, (30.0 + 50.0 * g.land_k * (1.0 - a * 0.5)) * k * (1.0 if terra else 0.55), a * (2.2 if terra else 1.2))
 		dust_c = keep
+	var ww: float = car.get("wheel_w", 9.0)
 	for wx in car.wheel_x:   # wheels stay on the road (or leave it together in a jump); the body rides above them
-		draw_rect(Rect2(sx + wx * k, sy - 7.0 * k - up, 9.0 * k, 7.0 * k), Color("05070c"))   # top tucked behind the bumper
-		draw_rect(Rect2(sx + (wx + 1.0) * k, sy - 7.0 * k - up, 7.0 * k, 2.0 * k), Color("2a2c33"))   # wet tyre catching the light
-		for tx in [1.5, 4.5, 7.0]:
+		draw_rect(Rect2(sx + wx * k, sy - 7.0 * k - up, ww * k, 7.0 * k), Color("05070c"))   # top tucked behind the bumper
+		draw_rect(Rect2(sx + (wx + 1.0) * k, sy - 7.0 * k - up, (ww - 2.0) * k, 2.0 * k), Color("2a2c33"))   # wet tyre catching the light
+		for tx in [ww * 0.17, ww * 0.5, ww * 0.78]:
 			draw_rect(Rect2(sx + (wx + tx) * k, sy - 5.0 * k - up, 0.5, 4.0 * k), Color("2a2c33"))
 	var bx0: float = car.brake_x
 	_reflect(sx - bx0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.12))

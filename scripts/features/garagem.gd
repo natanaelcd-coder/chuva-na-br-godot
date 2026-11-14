@@ -32,11 +32,11 @@ const SLOTS := ["", "cor", "capa", "tapete", "adesivo"]
 # where things sit, per car: passenger seat (bottom-left, top-left, top-right corners), floor mat (x, y, w, h),
 # sticker on the rear glass (centre x and bottom y in sprite units), mirror glass in the cabin (x, y, w, h)
 const SPOTS := {
-	"besouro": {"seat": [284, 216, 294, 186, 184], "mat": [222, 199, 56, 14], "sticker": [32.0, 18.0], "mirror": [171, 28, 42, 11],
+	"besouro": {"seat": [284, 216, 294, 186, 184], "mat": [222, 199, 56, 14], "sticker": [32.0, 15.5], "mirror": [171, 28, 42, 11],
 		"rim": 11.0, "crop": [204, 130]},
-	"picape": {"seat": [262, 216, 274, 190, 188], "mat": [226, 194, 72, 22], "sticker": [32.0, 12.5], "mirror": [168, 8, 48, 11],
+	"picape": {"seat": [262, 216, 274, 190, 188], "mat": [226, 194, 72, 22], "sticker": [32.0, 13.5], "mirror": [168, 8, 48, 11],
 		"rim": 7.0, "crop": [196, 128]},
-	"gt": {"seat": [276, 216, 286, 186, 184], "mat": [246, 196, 52, 18], "sticker": [32.0, 20.0], "mirror": [169, 23, 46, 11],
+	"gt": {"seat": [276, 216, 286, 186, 184], "mat": [246, 196, 52, 18], "sticker": [32.0, 17.0], "mirror": [169, 23, 46, 11],
 		"rim": 12.0, "crop": [190, 126]},
 }
 
@@ -438,8 +438,9 @@ func _draw_preview() -> void:
 	p.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var info: Dictionary = Cat.CARS[car]
 	for wx in info.wheel_x:
-		p.draw_rect(Rect2(c.x + wx * k, c.y - 7.0 * k, 9.0 * k, 7.0 * k), Color("05070c"))
-		p.draw_rect(Rect2(c.x + (wx + 1.0) * k, c.y - 7.0 * k, 7.0 * k, 2.0 * k), Color("2a2c33"))
+		var ww: float = info.get("wheel_w", 9.0)
+		p.draw_rect(Rect2(c.x + wx * k, c.y - 7.0 * k, ww * k, 7.0 * k), Color("05070c"))
+		p.draw_rect(Rect2(c.x + (wx + 1.0) * k, c.y - 7.0 * k, (ww - 2.0) * k, 2.0 * k), Color("2a2c33"))
 	var o := c + Vector2(0, -6.0 * k)
 	var bt := body_tex(car, shown.get("cor", ""))
 	if bt:
