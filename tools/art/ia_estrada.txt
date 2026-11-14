@@ -54,3 +54,12 @@ trator
 tree0
 tree1
 tree2
+posto
+venda
+moto0
+moto1
+front_moto0
+front_moto1
+van0
+van1
+front_van0

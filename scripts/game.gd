@@ -23,7 +23,7 @@ const SPRITES := ["tree0", "tree1", "araucaria", "bush", "pole", "lamp", "posto"
 	"front_mod0", "front_mod1", "cerca", "eucalipto", "cafe", "casa_sitio", "capela", "vaca0", "vaca1", "porteira",
 	"placa_queijo", "placa_ovos", "placa_gado", "venda", "ipe", "bambu", "placa_sitio0", "placa_sitio1", "placa_sitio2",
 	"placa_venda", "luminaria", "muro", "portico", "led0", "led1", "sos", "placa_radar", "placa_saida", "placa_pedagio",
-	"placa_parada", "parada", "boiadeiro"]
+	"placa_parada", "parada", "boiadeiro", "moto0", "moto1", "front_moto0", "front_moto1", "van0", "van1", "front_van0"]
 
 # the trip the player picked (menu), and what it resolves to
 var cfg := {"car": "besouro", "road": "br", "weather": "chuva", "time": "entardecer"}
@@ -632,33 +632,74 @@ func road_y(z: float, rough := 0.0) -> float:
 		y += lerpf(NOISE[i] * (0.25 + ROUGH[i]), NOISE[j] * (0.25 + ROUGH[j]), k) * rough * 16.0
 	return y
 
+# traffic entry for the vehicles that are not car-wide (motorbikes, vans): the sprite width follows the picture (94 px = 900 units)
+func _veh(z: float, x: float, v: float, t_name: String, dir: int) -> Dictionary:
+	var tx: Texture2D = tex[t_name]
+	var e := {"z": z, "x": x, "v": v, "tex": tx, "dir": dir, "ww": 900.0 * tx.get_width() / 94.0}
+	if t_name.contains("moto"):
+		e["hb"] = 0.34
+	return e
+
 func _spawn_cars() -> void:
 	if cfg.road == "terra":
 		for i in 12:   # our side: tractors and old cars; you overtake them through the oncoming lane
 			var tr := i % 4 == 0
 			var boi := i % 6 == 5   # the cattle truck, slow on the dirt
+			if i == 7 or i == 9:   # a motorbike on the dirt
+				cars.append(_veh(randf_range(0, TRACK), LANES[1], randf_range(40, 52), "moto%d" % (0 if i == 7 else 1), 1))
+				continue
 			cars.append({"z": randf_range(0, TRACK), "x": LANES[1], "v": randf_range(18, 24) if tr else (randf_range(28, 36) if boi else randf_range(38, 52)),
 				"tex": tex["trator"] if tr else (tex["boiadeiro"] if boi else tex["car%d" % (randi() % 7)]), "dir": 1})
 		for i in 7:
-			cars.append({"z": randf_range(0, TRACK), "x": LANES[0], "v": -randf_range(40, 58), "tex": tex["front%d" % (randi() % 3)], "dir": -1})
+			if i == 2:
+				cars.append(_veh(randf_range(0, TRACK), LANES[0], -randf_range(40, 55), "front_moto%d" % randi_range(0, 1), -1))
+			elif i == 5:
+				cars.append(_veh(randf_range(0, TRACK), LANES[0], -randf_range(40, 52), "front_van0", -1))
+			else:
+				cars.append({"z": randf_range(0, TRACK), "x": LANES[0], "v": -randf_range(40, 58), "tex": tex["front%d" % (randi() % 3)], "dir": -1})
 	elif cfg.road == "expressa":
 		var spd := [[100, 115], [88, 100], [74, 86], [58, 70]]
 		for i in 32:
 			var l := i % 4
 			var heavy := l == 3 and randf() < 0.6
 			var t_name: String = (["car7", "onibus"].pick_random() if heavy else ["mod0", "mod1", "mod2", "mod3", "mod0"].pick_random())
-			cars.append({"z": randf_range(0, TRACK), "x": LANES[l], "v": randf_range(spd[l][0], spd[l][1]), "tex": tex[t_name], "dir": 1})
+			if i == 5 or i == 18:
+				t_name = "van%d" % (i % 2)
+			elif i == 9 or i == 26:
+				t_name = "moto%d" % (i % 2)
+			var ev := _veh(randf_range(0, TRACK), LANES[l], randf_range(spd[l][0], spd[l][1]), t_name, 1)
+			if t_name.begins_with("car") or t_name.begins_with("mod") or t_name == "onibus":
+				ev = {"z": ev.z, "x": ev.x, "v": ev.v, "tex": tex[t_name], "dir": 1}
+			cars.append(ev)
 		for i in 12:
-			cars.append({"z": randf_range(0, TRACK), "x": -2.4 if i % 2 else -3.1, "v": -randf_range(80, 105),
-				"tex": tex[["front_mod0", "front_mod1", "front0"][i % 3]], "dir": -1})
+			var fn: String = ["front_mod0", "front_mod1", "front0"][i % 3]
+			if i == 4 or i == 11:
+				fn = "front_van0" if i == 4 else "front_moto1"
+			if fn.contains("van") or fn.contains("moto"):
+				cars.append(_veh(randf_range(0, TRACK), -2.4 if i % 2 else -3.1, -randf_range(80, 105), fn, -1))
+			else:
+				cars.append({"z": randf_range(0, TRACK), "x": -2.4 if i % 2 else -3.1, "v": -randf_range(80, 105), "tex": tex[fn], "dir": -1})
 	else:
 		for i in 26:
 			var l := i % 3
 			var sp := randf_range(55, 68) if l == 0 else (randf_range(45, 58) if l == 1 else randf_range(34, 48))
 			var name: String = ["car7", "car7", "boiadeiro"].pick_random() if (l == 2 and randf() < 0.35) else "car%d" % (randi() % 7)
-			cars.append({"z": randf_range(0, TRACK), "x": LANES[l], "v": sp, "tex": tex[name], "dir": 1})
+			if i == 4 or i == 16:   # a motorbike keeping up with the left lane
+				cars.append(_veh(randf_range(0, TRACK), LANES[l], randf_range(55, 68), "moto%d" % (i % 2), 1))
+			elif i == 7 or i == 19 or i == 23:
+				cars.append(_veh(randf_range(0, TRACK), LANES[l], sp, "van%d" % (i % 2), 1))
+			else:
+				cars.append({"z": randf_range(0, TRACK), "x": LANES[l], "v": sp, "tex": tex[name], "dir": 1})
 		for i in 9:
-			cars.append({"z": randf_range(0, TRACK), "x": -2.1 if i % 2 else -2.8, "v": -randf_range(50, 70), "tex": tex["front%d" % (randi() % 3)], "dir": -1})
+			var fn := "front%d" % (randi() % 3)
+			if i == 3:
+				fn = "front_moto0"
+			elif i == 6:
+				fn = "front_van0"
+			if fn.contains("van") or fn.contains("moto"):
+				cars.append(_veh(randf_range(0, TRACK), -2.1 if i % 2 else -2.8, -randf_range(50, 70), fn, -1))
+			else:
+				cars.append({"z": randf_range(0, TRACK), "x": -2.1 if i % 2 else -2.8, "v": -randf_range(50, 70), "tex": tex[fn], "dir": -1})
 
 func _init_weather() -> void:
 	for i in 90:
@@ -1163,7 +1204,7 @@ func _process(dt: float) -> void:
 	var close := false
 	if started:   # cruise control (and the autopilot) yields to the car ahead instead of ramming it
 		for c in cars:
-			if c.dir > 0 and (absf(c.x - px) < 0.46 or (auto and absf(c.x - LANES[lane]) < 0.3)):
+			if c.dir > 0 and (absf(c.x - px) < c.get("hb", 0.46) or (auto and absf(c.x - LANES[lane]) < 0.3)):
 				var dd := fposmod(c.z - pos, TRACK)
 				var cvv: float = c.get("cur", c.v)   # what it is actually doing, e.g. stuck behind a tractor
 				if dd > 250.0 and dd < 9000.0:   # square-root braking curve: always enough room to slow down
@@ -1374,10 +1415,11 @@ func _process(dt: float) -> void:
 					cv = o.v
 			var d := fposmod(c.z - pos, TRACK)
 			var dxl := absf(c.x - px)
+			var hb: float = c.get("hb", 0.46)   # a motorbike is narrow: a smaller bubble
 			if d > TRACK - 1400.0 and dxl < 0.5:   # following us: keep a gap instead of creeping onto our bumper
 				cv = minf(cv, maxf(0.0, v + (TRACK - d - 1000.0) * 0.02))
 			# we cut in front of a faster car close behind: it brakes for about a second and honks, we keep our lane
-			if d > TRACK - 1200.0 and dxl < 0.46 and c.v > v and c.get("honk_t", 0.0) <= 0.0:
+			if d > TRACK - 1200.0 and dxl < hb and c.v > v and c.get("honk_t", 0.0) <= 0.0:
 				c.hold_t = 1.2
 				c.honk_t = 5.0
 				_sfx("horn")
@@ -1385,14 +1427,14 @@ func _process(dt: float) -> void:
 			if c.get("hold_t", 0.0) > 0.0:
 				c.hold_t -= dt
 				cv = minf(cv, maxf(0.0, v - 20.0))
-			var behind_overlap := d > TRACK - 500.0 and dxl < 0.46
-			var swipe := d <= 250.0 and dxl < 0.46   # alongside a car ahead: no driving through it
+			var behind_overlap := d > TRACK - 500.0 and dxl < hb
+			var swipe := d <= 250.0 and dxl < hb   # alongside a car ahead: no driving through it
 			if swipe:
 				var sgn := 1.0 if px >= c.x else -1.0
-				px = c.x + sgn * 0.46
+				px = c.x + sgn * hb
 				vx = sgn * 0.45
 				kick = sgn * 0.5
-			if (d < 1250.0 and d > 250.0 and dxl < 0.46 and v > c.v) or swipe or behind_overlap:
+			if (d < 1250.0 and d > 250.0 and dxl < hb and v > c.v) or swipe or behind_overlap:
 				sfx["bump"].volume_db = linear_to_db(0.4 + 0.6 * clampf((v - c.v) / 40.0, 0.0, 1.0))
 				if not swipe and not behind_overlap:
 					v = lerpf(v, maxf(0.0, cv - 6.0), minf(1.0, dt * 10.0))   # a firm shove over ~0.2 s, not a wall
@@ -1411,13 +1453,14 @@ func _process(dt: float) -> void:
 		elif road.two_way and absf(c.x) < 1.0:   # oncoming, on our road: flashes and honks, a touch costs a step
 			var d2 := fposmod(c.z - pos, TRACK)
 			var dxo := absf(c.x - px)
+			var hbo: float = c.get("hb", 0.46)
 			c.honk_t = maxf(0.0, c.get("honk_t", 0.0) - dt)
 			c.flash_t = maxf(0.0, c.get("flash_t", 0.0) - dt)
-			if started and dxo < 0.46 and d2 < 9000.0 and c.honk_t <= 0.0:
+			if started and dxo < hbo and d2 < 9000.0 and c.honk_t <= 0.0:
 				c.honk_t = 6.0
 				c.flash_t = 1.4
 				_sfx("horn")
-			if (d2 < 450.0 or d2 > TRACK - 250.0) and dxo < 0.46:
+			if (d2 < 450.0 or d2 > TRACK - 250.0) and dxo < hbo:
 				px = c.x + 0.48
 				vx = 0.5
 				kick = 0.6

@@ -506,7 +506,7 @@ func _draw() -> void:
 		for c in sg.cars:
 			var k: float = fmod(c.z, SEG) / SEG
 			var sy := lerpf(asy, bsy, k)
-			var r := _sprite(c.tex, 900.0, lerpf(a_s, b_s, k), lerpf(asx, bsx, k) + lerpf(asw, bsw, k) * c.x, sy, clip, alpha)
+			var r := _sprite(c.tex, c.get("ww", 900.0), lerpf(a_s, b_s, k), lerpf(asx, bsx, k) + lerpf(asw, bsw, k) * c.x, sy, clip, alpha)
 			if r.size.x == 0.0:
 				continue
 			var rx := r.position.x
