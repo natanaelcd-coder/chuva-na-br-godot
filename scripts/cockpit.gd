@@ -8,6 +8,8 @@ var cock: Texture2D
 var lay: Dictionary
 var hang_items: Array = []   # what hangs from the mirror; starts as the car's own, features may swap it after setup_done
 var dog_at: Array = []       # where the bobble dog sits on the dash ([] = no dog); same
+var tint := Color.WHITE      # light in the cabin (dusk, night): the whole node is modulated by it; lit things divide it back out
+var night := 0.0             # 0 by day .. 1 at night: the dash lights come on
 const SEG7 := {   # tiny seven-segment digits for the GT's dashboard clock: a b c d e f g
 	"0": "1111110", "1": "0110000", "2": "1101101", "3": "1111001", "4": "0110011",
 	"5": "1011011", "6": "1011111", "7": "1110000", "8": "1111111", "9": "1111011"}
@@ -24,7 +26,24 @@ func setup() -> void:
 
 func _process(_dt: float) -> void:
 	if visible:
+		_light()
 		queue_redraw()
+
+# the painted cabin takes the light outside: full by day, warm (or bluish, under rain) at dusk, dark blue at night
+func _light() -> void:
+	var amb: float = g.e_amb
+	var f := clampf((amb - 0.38) / 0.62, 0.0, 1.0)
+	var c := Color(0.27, 0.31, 0.45).lerp(Color.WHITE, f)
+	var dusk := clampf(1.0 - absf(amb - 0.78) / 0.26, 0.0, 1.0)
+	c *= Color.WHITE.lerp(g.e_hor.lightened(0.35), 0.4 * dusk)
+	tint = Color(c.r, c.g, c.b, 1.0)
+	night = clampf((0.85 - amb) / 0.4, 0.0, 1.0)
+	modulate = tint
+
+# a colour that keeps its own light under the cabin's tint (gauge needles, the radio display, the clock)
+func lit(c: Color, glow := 1.0) -> Color:
+	var k := lerpf(1.0, 1.15, night * glow)
+	return Color(c.r * k / tint.r, c.g * k / tint.g, c.b * k / tint.b, c.a)
 
 func R(c: String, x: float, y: float, w: float, h: float) -> void:
 	draw_rect(Rect2(x, y, w, h), Color(c))
@@ -44,8 +63,11 @@ func _dashes(r: float, count: int, span: float, c: Color, w: float) -> void:
 
 func _needle(c: Vector2, len: float, frac: float, col: Color) -> void:
 	var a := PI * 0.8 + clampf(frac, 0.0, 1.0) * PI * 1.4
-	draw_line(c, c + Vector2(cos(a), sin(a)) * len, col, 1.0)
-	R("e6e8ee", c.x - 0.5, c.y - 0.5, 1, 1)
+	if night > 0.0:   # dash lights: a soft glow on the dial
+		draw_circle(c, len + 2.0, lit(Color(0.55, 0.85, 0.65, 0.10 * night), 0.0))
+	draw_line(c, c + Vector2(cos(a), sin(a)) * len, lit(col), 1.0)
+	draw_rect(Rect2(c.x - 0.75, c.y - 0.75, 1.5, 1.5), Color("2a2c33"))
+	draw_rect(Rect2(c.x - 0.5, c.y - 0.5, 1, 1), lit(Color("a8acb5")))
 
 func _digit(ch: String, x: float, y: float, col: Color) -> void:
 	var s: String = SEG7.get(ch, "0000000")
@@ -55,12 +77,21 @@ func _digit(ch: String, x: float, y: float, col: Color) -> void:
 		if s[i] == "1":
 			draw_rect(segs[i], col)
 
+# a mirror shows the road behind: sky over road, both from the world's own colours (dark at night)
+func _mirror_glass(x: float, y: float, w: float, h: float) -> void:
+	var sky: Color = g.e_hor.lerp(g.e_top, 0.4).darkened(0.25)
+	var road: Color = g.e_road0.darkened(0.3)
+	draw_rect(Rect2(x, y, w, h), sky)
+	draw_rect(Rect2(x, y + roundf(h * 0.6), w, h - roundf(h * 0.6)), road)
+	draw_rect(Rect2(x, y, w, 0.5), Color(1, 1, 1, 0.18))
+	draw_line(Vector2(x + w * 0.62, y + 0.5), Vector2(x + w * 0.62 - h * 0.7, y + h - 0.5), Color(1, 1, 1, 0.12), 1.5)
+
 func _draw() -> void:
 	if lay.is_empty():
 		return
 	# --- on the glass, outside
-	var drop_c := Color(0.61, 0.73, 0.88, 0.75)
-	var drop_s := Color(0.03, 0.05, 0.09, 0.5)
+	var drop_c := lit(Color(0.61, 0.73, 0.88, 0.75), 0.0)   # the glass is outside the cabin's shade
+	var drop_s := lit(Color(0.03, 0.05, 0.09, 0.5), 0.0)
 	for d in g.drops:
 		var dx := roundf(d[0] * 2.0) / 2.0
 		var dy := roundf(d[1] * 2.0) / 2.0
@@ -81,24 +112,32 @@ func _draw() -> void:
 		if c.dir > 0:
 			behind = minf(behind, fposmod(g.pos - c.z, g.TRACK))
 	var m: Array = lay.mirror
-	var mc: float = m[0] + m[2] / 2.0 - 6.0
-	R("1a2547", m[0], m[1], m[2], m[3])
-	R("fff3b0", m[0] + m[2] - 9, m[1] - 1, 1, 1)
-	R("fff3b0", m[0] + m[2] - 6, m[1] - 1, 1, 1)
 	var sd: Array = lay.side
-	if behind < 9000.0:
+	_mirror_glass(m[0], m[1], m[2], m[3])
+	var sf: String = lay.get("side_frame", "")
+	if sf != "":   # the door mirror on its arm, for cabins whose art leaves it out
+		R(sf, sd[0] + sd[2], sd[1] + sd[3] / 2.0 - 0.5, 4, 1.5)
+		draw_rect(Rect2(sd[0] - 1, sd[1] - 1, sd[2] + 2, sd[3] + 2), Color(sf).darkened(0.45))
+		draw_rect(Rect2(sd[0] - 0.5, sd[1] - 0.5, sd[2] + 1, sd[3] + 1), Color(sf))
+	_mirror_glass(sd[0], sd[1], sd[2], sd[3])
+	if behind < 9000.0:   # headlights of whoever follows
 		var k := 1.0 - behind / 9000.0
 		var w := 2.0 + k * 8.0
 		var mh := 2.0 if k > 0.5 else 1.0
-		R("fff3b0", mc - w / 2.0, m[1] - 2.0 + k * 2.0, 2, mh)
-		R("fff3b0", mc + w / 2.0, m[1] - 2.0 + k * 2.0, 2, mh)
-		R("ffd65a", sd[0] + 6, sd[1] - 3, 2, 2)
-		R("ffd65a", sd[0] + 12, sd[1] - 3, 2, 2)
-	R("1a2547", sd[0], sd[1], sd[2], sd[3])
+		var mc: float = m[0] + m[2] / 2.0 - 6.0
+		var my: float = m[1] + m[3] * 0.55 - mh / 2.0
+		R("fff3b0", mc - w / 2.0, my, 2, mh)
+		R("fff3b0", mc + w / 2.0, my, 2, mh)
+		var sw := minf(sd[2] * 0.5, 2.0 + k * 3.0)
+		R("ffd65a", sd[0] + sd[2] / 2.0 - sw / 2.0 - 1.0, sd[1] + sd[3] * 0.5, 1.5, 1.5)
+		R("ffd65a", sd[0] + sd[2] / 2.0 + sw / 2.0, sd[1] + sd[3] * 0.5, 1.5, 1.5)
 
 	# --- fan and bobble dog (the Besouro's dashboard friends)
 	if not lay.fan.is_empty():
 		var fc := Vector2(lay.fan[0], lay.fan[1])
+		R("2a2c33", fc.x - 1.0, fc.y, 2, 10)          # its stand on the dash
+		R("4a4d57", fc.x - 4.0, fc.y + 9.0, 8, 2.5)
+		R("777b86", fc.x - 4.0, fc.y + 9.0, 8, 0.5)
 		draw_arc(fc, 8.0, 0.0, TAU, 24, Color("a8acb5"), 1.0)
 		for i in 3:
 			var a: float = g.fan_a + i * 2.094
@@ -180,31 +219,35 @@ func _draw() -> void:
 	if not lay.fuel.is_empty():
 		var fa: float = PI * 1.2 + g.fuel * PI * 0.6
 		var fc2 := Vector2(lay.fuel[0], lay.fuel[1])
-		draw_line(fc2, fc2 + Vector2(cos(fa), sin(fa)) * lay.fuel[2], Color("e6e8ee"), 1.0)
+		draw_line(fc2, fc2 + Vector2(cos(fa), sin(fa)) * lay.fuel[2], lit(Color("f2a62a")), 1.0)
 	if not lay.clock.is_empty():   # the in-game hour, from the sky
 		var hours := fposmod(14.0 + g.tday * 6.0, 24.0)
 		var hh := int(hours)
 		var mm := int((hours - hh) * 60.0)
 		var txt := "%02d%02d" % [hh, mm]
-		var cx0: float = lay.clock[0]
+		var ks: float = lay.clock[2] if lay.clock.size() > 2 else 1.0   # [x, y, scale]
+		draw_set_transform(Vector2(lay.clock[0], lay.clock[1]), 0.0, Vector2(ks, ks))
 		for i in 4:
-			_digit(txt[i], cx0 + i * 3.5 + (1.0 if i > 1 else 0.0), lay.clock[1], Color("3fe0e8"))
+			_digit(txt[i], i * 3.5 + (1.0 if i > 1 else 0.0), 0.0, lit(Color("f0484a")))
 		if int(g.t * 2.0) % 2 == 0:
-			R("3fe0e8", cx0 + 7.2, lay.clock[1] + 1.2, 0.5, 0.5)
-			R("3fe0e8", cx0 + 7.2, lay.clock[1] + 3.0, 0.5, 0.5)
+			draw_rect(Rect2(7.2, 1.2, 0.5, 0.5), lit(Color("f0484a")))
+			draw_rect(Rect2(7.2, 3.0, 0.5, 0.5), lit(Color("f0484a")))
+		_reset()
 	var on: bool = g.radio_st < g.STATIONS.size()
 	var label: int = 4 if g.static_t > 0.0 else (int(g.STATIONS[g.radio_st].label) if on else 3)
-	draw_texture_rect(g.tex["label%d" % label], Rect2(lay.label[0], lay.label[1], 40, 5), false)
+	draw_texture_rect(g.tex["label%d" % label], Rect2(lay.label[0], lay.label[1], 40, 5), false, lit(Color.WHITE))
 	if on:
 		var sp: float = g.t * 3.0
 		for r in lay.reels:   # tape reels turning
 			draw_circle(Vector2(r[0] + cos(sp) * 0.8, r[1] + sin(sp) * 0.8), 0.7, Color("2b1a12"))
-		if not lay.eq.is_empty():   # equalizer bars dancing to the radio
+		if not lay.eq.is_empty():   # equalizer bars dancing to the radio: 12 bands across the window [x, y, w, h]
 			var e: Array = lay.eq
+			var step: float = e[2] / 12.0
+			var bw := maxf(0.5, roundf(step * 0.6 * 2.0) / 2.0)
 			for i in 12:
-				var hgt: float = (0.3 + 0.7 * absf(sin(g.t * (3.0 + i * 0.7) + i * 1.3))) * e[3]
+				var hgt: float = roundf((0.3 + 0.7 * absf(sin(g.t * (3.0 + i * 0.7) + i * 1.3))) * e[3] * 2.0) / 2.0
 				var col := "3fae5a" if hgt < e[3] * 0.6 else ("ffd65a" if hgt < e[3] * 0.85 else "f0484a")
-				R(col, e[0] + i * 5.2, e[1] + e[3] - hgt, 3.5, hgt)
+				draw_rect(Rect2(e[0] + i * step, e[1] + e[3] - hgt, bw, hgt), lit(Color(col)))
 
 	# --- steering wheel
 	var wheel: float = g.wheel_a

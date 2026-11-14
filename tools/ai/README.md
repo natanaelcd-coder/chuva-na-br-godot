@@ -12,6 +12,15 @@ pelos segredos de rede da sessão.
 Retro Diffusion: preço grátis com `check_cost`; plus US$0,06 e core US$0,10 em 384x216.
 PixelLab: conta por gerações do plano. Primeiro teste em docs/ia/teste1/.
 
+## Cabines (PixelLab)
+
+As três cabines vêm de `/generate-image-v2` (384x216, referência = a cabine antiga com os vidros em magenta,
+"... The windshield and side windows are flat solid magenta. No steering wheel, no hands."). Brutos escolhidos em
+`docs/ia/cabines/`. `python3 tools/art/cabines_ia.py` recorta o magenta, pinta por cima o que o jogo desenha
+(mostradores sem ponteiro, visor do rádio, relógio, equalizador), escreve os adesivos na fonte do jogo, dobra para
+768x432 e gera as cores da garagem (`gar_cockpit_*`) recolorindo a lataria/painel. Onde fica cada coisa: `layout`
+de cada carro em `scripts/catalog.gd`. Os sprites gerados estão em `tools/art/ia_cabines.txt`.
+
 ## Áudio do jogo (ElevenLabs)
 
     python3 tools/ai/vozes_radio.py [--dry]   # locução do rádio: roteiros, geração do que falta, índice
