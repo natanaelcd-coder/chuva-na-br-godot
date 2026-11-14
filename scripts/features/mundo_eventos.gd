@@ -44,7 +44,7 @@ func _on_setup() -> void:
 
 func tx(n: String) -> Texture2D:
 	if not _tex.has(n):
-		_tex[n] = load("res://assets/sprites/%s.png" % n)
+		_tex[n] = AnimTex.load_sprite(n)
 	return _tex[n]
 
 func _light_ok(luz: String) -> bool:

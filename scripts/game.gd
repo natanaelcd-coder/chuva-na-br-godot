@@ -221,7 +221,7 @@ func _ready() -> void:
 	else:
 		randomize()
 	for n in SPRITES:
-		tex[n] = load("res://assets/sprites/%s.png" % n)
+		tex[n] = AnimTex.load_sprite(n)
 	for i in 8:
 		tex["car%d" % i] = load("res://assets/sprites/car%d.png" % i)
 	for i in 3:

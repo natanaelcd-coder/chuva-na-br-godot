@@ -40,6 +40,11 @@ var blink_t := 3.0
 var t := 0.0
 var main_item := {}
 var pause_label := ""
+var bust := {}   # "vo" / "caramelo" -> frame strip, when the PixelLab art exists
+const BUST_SIZE := {"vo": Vector2(64, 80), "caramelo": Vector2(56, 56)}
+const BUST_FALL := 9      # frames 0..8: awake .. fast asleep
+const BUST_START := 4     # frames 9..12: the jolt awake
+const BUST_BLINK := 2     # the frame used for a blink while awake
 
 func _ready() -> void:
 	g = get_parent()
@@ -47,6 +52,11 @@ func _ready() -> void:
 	who = w if WHO.has(w) else "ninguem"
 	for n in ["vo_corpo", "vo_cabeca", "caramelo_corpo", "caramelo_cabeca"]:
 		tex[n] = load("res://assets/sprites/%s.png" % n)
+	# PixelLab bust frames (strip: BUST_FALL frames of dozing off, then BUST_START of waking up scared); old drawing as fallback
+	for n in ["vo", "caramelo"]:
+		var p := "res://assets/sprites/%s_busto_anim.png" % n
+		if ResourceLoader.exists(p):
+			bust[n] = load(p)
 	g.menu.add_main_item(LABEL[who], _cycle)
 	main_item = g.menu.extras.back()
 	pause_label = LABEL[who]
@@ -151,6 +161,9 @@ func draw_cabin_mid(ck) -> void:
 		mood = 1
 	elif blink_t < 0.0:
 		mood = 2
+	if bust.has(who):
+		_draw_bust(ck, neck, mood)
+		return
 	if who == "vo":
 		ck.draw_texture_rect(tex.vo_corpo, Rect2(neck.x - 40, neck.y - 14, 80, 128), false)
 		var a := sleep * 0.32 + sin(t * 0.7) * 0.03 * sleep
@@ -173,6 +186,27 @@ func draw_cabin_mid(ck) -> void:
 		ck._reset()
 		if mood == 2 and sleep > 0.8:
 			_zzz(ck, neck + Vector2(16, -22))
+
+func _draw_bust(ck, neck: Vector2, mood: int) -> void:
+	var sz: Vector2 = BUST_SIZE[who]
+	var fr := 0
+	if startle > 0.35:   # the jolt: frames BUST_FALL.. while the scare fades
+		fr = BUST_FALL + clampi(int((1.0 - startle) / 0.65 * BUST_START), 0, BUST_START - 1)
+	elif sleep > 0.05:
+		fr = clampi(int(round(sleep * (BUST_FALL - 1))), 0, BUST_FALL - 1)
+	elif blink_t < 0.0:
+		fr = BUST_BLINK
+	var off := Vector2(0, 8 if who == "vo" else 14)
+	var breathe := sin(t * (1.1 if sleep < 0.5 else 0.6)) * 0.6
+	var r := Rect2(roundf(neck.x - sz.x / 2.0), roundf(neck.y - sz.y * 0.55 + off.y + breathe), sz.x, sz.y)
+	var a := 0.0
+	if who == "caramelo" and fr == 0:   # wags and leans a little with the speed, like a dog watching the road
+		a = sin(t * 9.0) * 0.025 * clampf(g.v / 80.0, 0.0, 1.0)
+	ck.draw_set_transform(Vector2(r.position.x + sz.x / 2.0, r.end.y), a, Vector2.ONE)
+	ck.draw_texture_rect_region(bust[who], Rect2(-sz.x / 2.0, -sz.y, sz.x, sz.y), Rect2(fr * sz.x, 0, sz.x, sz.y))
+	ck._reset()
+	if sleep > 0.8 and startle < 0.1:
+		_zzz(ck, Vector2(neck.x + 14, r.position.y + 8))
 
 func _zzz(ck, p: Vector2) -> void:
 	for i in 3:
