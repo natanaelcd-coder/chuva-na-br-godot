@@ -113,7 +113,7 @@ def masks(name, a):
     return m
 
 PAINTS = {
-    "besouro": {"limao": "#9cc23a", "bege": "#d6bf90", "calcinha": "#93c3e3", "laranja": "#d9762c", "branco": "#e4e2d8"},
+    "besouro": {"limao": "#9cc23a", "bege": "#d6bf90", "calcinha": "#62c6f2", "laranja": "#d9762c", "branco": "#e4e2d8"},
     "picape": {"vermelha": "#b8282e", "saia": ("#7a4a24", "#e8dcbc"), "azul": "#3d6f9e", "saia_azul": ("#2f5f8f", "#e6e8ee"), "amarela": "#d9a524"},
     "gt": {"prata": "#a8acb5", "preto": "#2b2d36", "branco": "#dfe2e8", "azul": "#24406e"},
 }

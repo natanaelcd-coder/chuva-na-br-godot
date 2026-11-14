@@ -311,7 +311,7 @@ def _ramp(v, a, b):
 
 
 PAINTS = {   # same ids as scripts/features/garagem.gd; colours from tools/art/art_garagem.js
-    'besouro': {'limao': '#9cc23a', 'bege': '#d6bf90', 'calcinha': '#93c3e3', 'laranja': '#d9762c', 'branco': '#e4e2d8'},
+    'besouro': {'limao': '#9cc23a', 'bege': '#d6bf90', 'calcinha': '#62c6f2', 'laranja': '#d9762c', 'branco': '#e4e2d8'},
     'picape': {'vermelha': '#b8282e', 'saia': '#e8dcbc', 'azul': '#3d6f9e', 'saia_azul': '#e6e8ee', 'amarela': '#d9a524'},   # two-tone: the dash takes the light colour
     'gt': {'prata': '#a8acb5', 'preto': '#24262e', 'branco': '#dfe2e8', 'azul': '#24406e'},
 }
