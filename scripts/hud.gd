@@ -18,6 +18,9 @@ var now_w := 0.0
 var now_t := 0.0
 var toast_t := 0.0
 var _fuel := -1
+var l_mode: Label
+const MODE_TXT := ["PILOTO: DESL", "PILOTO: ASSIST", "PILOTO: AUTO"]
+const MODE_COL := [Color("e6e8ee"), Color("9bbbe0"), Color("3fae5a")]
 
 func _label(txt: String, size: int, col: Color, pos: Vector2, parent: Node = self, shadow := true) -> Label:
 	var l := Label.new()
@@ -85,6 +88,7 @@ func _ready() -> void:
 	_label("KM/H", 8, LINE, Vector2(550, 406), self, false)
 	l_gear = _label("N", 24, AMBER, Vector2(658, 370), self, false)
 	_label("TANQUE", 8, LINE, Vector2(706, 406), self, false)
+	l_mode = _label("", 8, LINE, Vector2(550, 356), self, false)
 	for i in 6:
 		var b := ColorRect.new()
 		var h := 8.0 + i * 3.0
@@ -123,6 +127,11 @@ func set_values(score: float, hi: float, kmh: float, gear: String, fuel: float) 
 		_fuel = n
 		for i in 6:
 			bars[i].color = (Color("f0484a") if n <= 1 else Color("3fae5a")) if i < n else Color("1a2547")
+
+func set_mode(m: int) -> void:
+	if l_mode:
+		l_mode.text = MODE_TXT[m] + "  (P)"
+		l_mode.add_theme_color_override("font_color", MODE_COL[m])
 
 var odo: Array = []   # [left, centre] texts for the top line, set by scripts/features/hodometro.gd
 func set_odo(left: String, centre: String) -> void:

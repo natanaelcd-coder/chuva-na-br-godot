@@ -92,6 +92,10 @@ var sky_k := 1.0            # how overcast the sky is: 1 rain palette, 0 clear p
 var mixed_weather := false  # weather that comes and goes (VARIÁVEL, summer showers): a feature drives rain_goal, wet_k and sky_k
 var showers := false        # summer showers also on a sunny trip (set by a feature before setup)
 var auto := true
+# who drives: 0 DESLIGADO (you steer and hold the speed yourself), 1 ASSISTIDO (cruise control, lane keeping,
+# keeps the distance to the car ahead; you choose the lane), 2 LIGADO (the autopilot drives). P cycles them.
+var drive_mode := 1
+const MODE_NAMES := ["DESLIGADO", "ASSISTIDO", "LIGADO"]
 var started := false
 var bump_t := 0.0
 var lane := 2
@@ -855,7 +859,7 @@ func begin() -> void:
 	trip_time = 0.0
 	menu.hide_all()
 	hud.set_drive(true)
-	set_auto(false)
+	set_mode(clampi(int(store_get("viagem", "modo", 1)), 0, 1))
 	set_cam(cam)
 	a_engine.play()
 	a_rumble.play()
@@ -872,6 +876,7 @@ func to_menu() -> void:
 	store_save()
 	started = false
 	state = "menu"
+	drive_mode = 2   # behind the menu the car drives itself
 	auto = true
 	_set_paused_audio(false)
 	a_engine.stop()
@@ -907,9 +912,20 @@ func choose(key: String, value: String) -> void:
 	setup()
 
 func set_auto(on: bool) -> void:
-	auto = on
-	if started:
-		hud.toast("PILOTO AUTOMÁTICO: SÓ CURTA A VIAGEM" if on else "VOCÊ NO VOLANTE")
+	set_mode(2 if on else maxi(1, drive_mode if drive_mode < 2 else 1))
+
+func set_mode(m: int) -> void:
+	var was := drive_mode
+	drive_mode = clampi(m, 0, 2)
+	auto = drive_mode == 2
+	if drive_mode == 0:
+		overtaking = false
+	if was == 2 and drive_mode < 2:
+		target = v   # taking over keeps the speed you have
+	hud.set_mode(drive_mode)
+	if started and was != drive_mode:
+		hud.toast(["PILOTO DESLIGADO: TUDO COM VOCÊ", "PILOTO ASSISTIDO: VOCÊ ESCOLHE A FAIXA", "PILOTO AUTOMÁTICO: SÓ CURTA A VIAGEM"][drive_mode])
+		store_set("viagem", "modo", drive_mode)
 
 func set_cam(c: int) -> void:
 	cam = c
@@ -933,7 +949,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 		elif k == KEY_R:
 			next_station()
 		elif k == KEY_P:
-			set_auto(not auto)
+			set_mode((drive_mode + 2) % 3)   # LIGADO -> ASSISTIDO -> DESLIGADO -> LIGADO
 		elif k == KEY_M:
 			set_sound(not sound_on)
 		elif k == KEY_V:
@@ -1186,9 +1202,14 @@ func _process(dt: float) -> void:
 	# speed: cruise control
 	var up := Input.is_physical_key_pressed(KEY_UP) or Input.is_physical_key_pressed(KEY_W) or bot_speed > 0.0
 	var dn := Input.is_physical_key_pressed(KEY_DOWN) or Input.is_physical_key_pressed(KEY_S) or bot_speed < 0.0
-	if started:
+	var manual := started and drive_mode == 0
+	if manual:   # no cruise control: the throttle is the up key, down brakes, letting go coasts
+		target = v
+	elif started:
 		target = clampf(target + (float(up) - float(dn)) * 28.0 * dt, 0.0, car.top)
 	var tgt := target if started else 55.0
+	if manual:
+		tgt = car.top if up else (0.0 if dn else maxf(0.0, v - 5.0 * dt))
 	if auto or not started:
 		tgt = minf(tgt, _bump_limit())   # the autopilot eases off before a speed bump
 	if fuel <= 0.0:
@@ -1202,7 +1223,7 @@ func _process(dt: float) -> void:
 	if on_rail:   # held against the guard rail: it scrubs speed (through the cruise target, or the cruise would refill it)
 		tgt = minf(tgt, maxf(30.0, v - 12.0 * dt))
 	var close := false
-	if started:   # cruise control (and the autopilot) yields to the car ahead instead of ramming it
+	if started and not manual:   # cruise control (and the autopilot) yields to the car ahead instead of ramming it
 		for c in cars:
 			if c.dir > 0 and (absf(c.x - px) < c.get("hb", 0.46) or (auto and absf(c.x - LANES[lane]) < 0.3)):
 				var dd := fposmod(c.z - pos, TRACK)
@@ -1225,7 +1246,7 @@ func _process(dt: float) -> void:
 	var left := Input.is_physical_key_pressed(KEY_LEFT) or Input.is_physical_key_pressed(KEY_A)
 	var dir := clampf(float(right) - float(left) + touch_steer + bot_steer, -1.0, 1.0)
 	if dir != 0.0 and auto and started:
-		set_auto(false)
+		set_mode(1)
 	var is_auto := auto or not started
 	if is_auto:
 		_auto_dodge(base.i)
@@ -1268,7 +1289,7 @@ func _process(dt: float) -> void:
 	var grip := (1.0 - 0.3 * rain * sp) * (0.3 if aqua > 0.0 else 1.0) * (0.2 if air else 1.0)   # in the air the car keeps the line it left with
 	var vx0 := vx
 	vx += (steer * 1.0 * minf(1.0, sp * 2.5) - vx) * minf(1.0, dt * car.grip * grip)
-	if dir == 0.0 and not is_auto and aqua <= 0.0 and (px < 1.02 if walled else absf(px) < 1.02):
+	if dir == 0.0 and not is_auto and not manual and aqua <= 0.0 and (px < 1.02 if walled else absf(px) < 1.02):
 		if lane != press_lane:   # just changed lane (or never steered): settle into the lane centre
 			px += (LANES[lane] - px) * minf(1.0, 2.5 * dt)
 		elif free_t > 0.5:       # hands off after a nudge: hold that line, even through the bend
