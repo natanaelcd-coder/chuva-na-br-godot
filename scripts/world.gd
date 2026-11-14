@@ -233,7 +233,9 @@ func _draw_player(sx: float, sy: float, s: float) -> void:
 	_reflect(sx - bx0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.12))
 	_reflect(sx + bx0 * k, sy + 2.0 * k, 4.0 * k, 12.0 * k, Color(0.78, 0.12, 0.14, 0.3 if g.brake else 0.12))
 	draw_set_transform(body_at(sx, sy, k), body_tilt(), Vector2.ONE)
-	draw_texture_rect(player_tex if player_tex else g.tex[car.player], Rect2(-32.0 * k, -44.0 * k, 64.0 * k, 46.0 * k), false)
+	var body: Texture2D = player_tex if player_tex else g.tex[car.player]
+	var bh: float = preload("res://scripts/catalog.gd").body_h(body)
+	draw_texture_rect(body, Rect2(-32.0 * k, (2.0 - bh) * k, 64.0 * k, bh * k), false)
 	g.feature_call("draw_player", [self, k])   # features: stickers on the body (sprite unit (u, v) is at ((u - 32) k, (v - 44) k))
 	if g.brake:
 		for bx in [-bx0, bx0]:

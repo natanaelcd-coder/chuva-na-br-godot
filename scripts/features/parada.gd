@@ -322,7 +322,8 @@ func _draw_art() -> void:
 	var ct: Texture2D = g.tex[g.car.player]
 	var cx: float = CAR_X[kind]
 	art.draw_rect(Rect2(cx + 2, 136, 48, 3), Color(0, 0, 0, 0.4))
-	art.draw_texture_rect(ct, Rect2(cx, 101, 52, 37.4), false, Color(1, 1, 1, 1).lerp(Color(g.e_amb, g.e_amb, g.e_amb * 1.05), 0.35))
+	var ch: float = 52.0 * preload("res://scripts/catalog.gd").body_h(ct) / 64.0
+	art.draw_texture_rect(ct, Rect2(cx, 138.4 - ch, 52, ch), false, Color(1, 1, 1, 1).lerp(Color(g.e_amb, g.e_amb, g.e_amb * 1.05), 0.35))
 	if g.rain > 0.05:   # rain outside, and drips off the awning edge
 		var n := int(40 * g.rain)
 		for i in n:

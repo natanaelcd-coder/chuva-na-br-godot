@@ -444,7 +444,8 @@ func _draw_preview() -> void:
 	var o := c + Vector2(0, -6.0 * k)
 	var bt := body_tex(car, shown.get("cor", ""))
 	if bt:
-		p.draw_texture_rect(bt, Rect2(o + Vector2(-32.0, -44.0) * k, Vector2(64.0, 46.0) * k), false)
+		var bh: float = Cat.body_h(bt)
+		p.draw_texture_rect(bt, Rect2(o + Vector2(-32.0, 2.0 - bh) * k, Vector2(64.0, bh) * k), false)
 	_sticker(p, car, shown.get("adesivo", ""), k, o)
 	# a spare steering wheel hanging on the wall, wearing the cover
 	var wl: Array = info.layout.wheel

@@ -215,7 +215,8 @@ func _draw_card() -> void:
 	card.draw_rect(st.grow(-5), Color("3d5f94"))
 	card.draw_rect(Rect2(st.position.x + 5, st.position.y + 46, 54, 25), Color("23743f"))
 	var ptex: Texture2D = g.tex[Cat.CARS[e.car].player]
-	card.draw_texture_rect(ptex, Rect2(st.position.x + 8, st.position.y + 22, 48, 34.5), false)
+	var pch: float = 48.0 * Cat.body_h(ptex) / 64.0
+	card.draw_texture_rect(ptex, Rect2(st.position.x + 8, st.position.y + 56.5 - pch, 48, pch), false)
 	card.draw_string(font, Vector2(st.position.x + 8, st.position.y + 16), "R$1", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color("ffd65a"))
 	var pm := Vector2(616, 92)
 	card.draw_arc(pm, 30.0, 0.0, TAU, 40, Color(BROWN, 0.6), 2.0)

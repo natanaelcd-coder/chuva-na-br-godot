@@ -16,7 +16,7 @@ OUT = os.path.join(ROOT, "assets", "sprites")
 # cut = primeira linha (do bruto) já dentro dos pneus; tires = (x esquerdo do pneu, x direito do pneu) centros; bw = largura da carroceria em unidades do jogo
 CARS = {
     "besouro": dict(raw="besouro_raw.png", out="player", cut=93, tires=(28.5, 97.0), bw=60.0, lamp_y=74.5),
-    "picape":  dict(raw="picape_raw.png", out="player_picape", cut=95, tires=(30.0, 97.0), bw=64.0, lamp_y=74.0),
+    "picape":  dict(raw="picape_raw.png", out="player_picape", cut=95, tires=(30.0, 97.0), bw=64.0, lamp_y=74.0, fit=True),
     "gt":      dict(raw="gt_raw.png", out="player_gt", cut=96, tires=(28.0, 99.0), bw=64.0, lamp_y=74.5),
 }
 GAP = 3.0   # unidades de folga embaixo (a carroceria repousa 6 acima do chão; as rodas têm 7 de altura)
@@ -37,11 +37,13 @@ def base(c):
     pad = 4
     for _ in range(6):
         H = h0 + pad
-        W = max(int(np.ceil(H * 64.0 / 46.0)), w0)
+        # fit: a carroceria ocupa as 64 unidades de largura (a picape é alta: a textura fica mais alta que 64x46, e o jogo
+        # desenha com a proporção da textura, ver Cat.body_h); sem fit a textura tem sempre a proporção 64:46
+        W = w0 if c.get("fit") else max(int(np.ceil(H * 64.0 / 46.0)), w0)
         s = 64.0 / W
         pad = int(round(GAP / s))
     H = h0 + pad
-    W = max(int(np.ceil(H * 64.0 / 46.0)), w0)
+    W = w0 if c.get("fit") else max(int(np.ceil(H * 64.0 / 46.0)), w0)
     canvas = np.zeros((H, W, 4), np.uint8)
     ox = (W - w0) // 2
     canvas[:h0, ox:ox + w0] = crop

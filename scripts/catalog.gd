@@ -37,6 +37,12 @@ const SKIES := {
 # damping ratio = c / (2 sqrt(k))), pitch_* and roll_* the same for nose and lean; roll_gain how far it leans,
 # hole_gain how hard a pothole, a speed bump or a landing throws it. Firm enough to settle in about a second
 # (one visible swing), still an old car: the beetle floats, the pickup bounces quick and high, the GT sits flat.
+# height in units of a car body texture drawn 64 units wide, bottom edge 2 below the road point: the sprites of the
+# Besouro and the Sedan are 64x46 (kept exactly); the tall pickup's art is taller and is never squeezed to fit
+static func body_h(tx: Texture2D) -> float:
+	var h := 64.0 * tx.get_height() / tx.get_width()
+	return 46.0 if absf(h - 46.0) < 0.6 else h
+
 const CARS := {
 	"besouro": {
 		"name": "BESOURO 1973", "desc": "Motor atrás, molas macias, volante lento. Balança em tudo.",
@@ -64,7 +70,7 @@ const CARS := {
 		"spring_k": 96.0, "spring_c": 4.9, "pitch_k": 95.0, "pitch_c": 8.0, "roll_k": 44.0, "roll_c": 5.6, "roll_gain": 1.45, "hole_gain": 1.4,
 		"gear_lo": [0.0, 20.0, 45.0], "gear_hi": [20.0, 45.0, 105.0], "eng_base": 0.72, "eng_span": 0.42,
 		"camh": 1050.0, "cockpit": "cockpit_picape", "player": "player_picape",
-		"wheel_x": [-24.2, 16.7], "wheel_w": 7.5, "brake_x": 21.0, "brake_y": -13.8,
+		"wheel_x": [-29.1, 20.1], "wheel_w": 7.5, "brake_x": 25.4, "brake_y": -16.4,
 		"layout": {
 			"wheel": [124, 178, 58], "wheel_style": "picape",
 			"speedo": [110.5, 143.5, 6.5, 120.0], "tach": [], "fuel": [139.0, 147.0, 5.0], "clock": [],

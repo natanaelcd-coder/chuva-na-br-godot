@@ -226,5 +226,60 @@ def build_signs(only=None):
             save(f(), n)
 
 
+LANCHES = {"pastel": 0, "coxinha": 0, "caldo_cana": 0, "cafe": 0, "pao_queijo": 0, "bolo_fuba": 0, "milho": 0, "queijo_doce": 0,
+           "misto": 0, "pamonha": 0, "pao_chapa": 0, "agua_coco": 0, "pingado": 0, "caldinho": 1}   # geração escolhida de cada ícone
+
+
+def build_lanches(only=None):
+    """ícones 64x48 (o jogo os desenha em 32x24): a geração (64x64) recortada e centrada, sem esticar"""
+    for k, i in LANCHES.items():
+        if only and "lanche_" + k not in only:
+            continue
+        src = os.path.join(RAW, "lanche_%s_%d.png" % (k, i))
+        if not os.path.exists(src):
+            continue
+        im = gen("lanche_%s_%d" % (k, i))
+        im = im.crop(bbox(im))
+        if im.width > 62 or im.height > 46:
+            f = min(62 / im.width, 46 / im.height)
+            im = im.resize((max(1, int(im.width * f)), max(1, int(im.height * f))), Image.NEAREST)
+        out = Image.new('RGBA', (64, 48), (0, 0, 0, 0))
+        out.alpha_composite(im, ((64 - im.width) // 2, 47 - im.height))
+        save(out, "lanche_" + k)
+
+
+def _font_tools():
+    sys.path.insert(0, os.path.join(ROOT, 'tools/ai'))
+    import fit_estrada
+    return fit_estrada
+
+
+def build_barracas():
+    fe = _font_tools()
+    # barraca de pamonha: a placa creme larga da geração leva o texto
+    im = gen("pamonha2_2")
+    im = im.crop(bbox(im))
+    ox, oy = bbox(gen("pamonha2_2"))[:2]
+    fe.centered(im, "PAMONHA", 45 - ox, 47 - oy, (122, 52, 24, 255))
+    fe.centered(im, "QUENTINHA", 45 - ox, 56 - oy, (194, 38, 48, 255))
+    save(im, "barraca_pamonha")
+    # quermesse: três barracas com placas em branco e a faixa amarela
+    im = gen("quermesse2_0")
+    bb = bbox(im)
+    im = im.crop(bb)
+    red, dark = (160, 30, 40, 255), (122, 52, 24, 255)
+    fe.centered(im, "QUERMESSE", 131, 13, dark)
+    fe.centered(im, "QUENTÃO", 54, 47, red)
+    fe.centered(im, "PASTEL", 131, 47, red)
+    fe.centered(im, "PESCARIA", 207, 47, red)
+    save(im, "quermesse")
+
+
 if __name__ == "__main__":
-    build_signs(sys.argv[1:])
+    a = sys.argv[1:]
+    if a == ["lanches"]:
+        build_lanches()
+    elif a == ["barracas"]:
+        build_barracas()
+    else:
+        build_signs(a)
