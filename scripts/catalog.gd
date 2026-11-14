@@ -46,13 +46,15 @@ const CARS := {
 		"gear_lo": [0.0, 16.0, 32.0, 52.0], "gear_hi": [16.0, 32.0, 52.0, 110.0], "eng_base": 0.9, "eng_span": 0.45,
 		"camh": 820.0, "cockpit": "cockpit", "player": "player",
 		"wheel_x": [-28.0, 19.0], "brake_x": 22.5, "brake_y": -17.0,
+		# where things sit on the cabin art (tools/art/cabines_ia.py paints the faces to match): mirror/side = mirror glass
+		# rects, side_frame = colour of a door mirror drawn by code ("" = it is in the art), clock = [x, y, scale]
 		"layout": {
-			"wheel": [112, 164, 52], "wheel_style": "besouro",
-			"speedo": [120.5, 138.5, 9.0, 120.0], "tach": [], "fuel": [148.5, 150.5, 6.0], "clock": [],
-			"label": [198, 144], "reels": [[210, 162], [226, 162]], "eq": [], "radio_hit": [182, 136, 72, 36],
-			"mirror": [170, 25, 44, 5], "anchor": [192, 33], "hang": ["rosary", "dice"],
-			"dog": [233, 95], "fan": [160.5, 104.5],
-			"wipers": [[118, 124], [232, 124]], "wlen": 80.0, "glass": [34, 40, 350, 119], "side": [3, 90, 19, 4],
+			"wheel": [126, 166, 52], "wheel_style": "besouro",
+			"speedo": [127.5, 139.0, 11.0, 120.0], "tach": [], "fuel": [156.5, 143.5, 4.0], "clock": [],
+			"label": [174, 133.5], "reels": [[193.5, 143.0], [202.5, 143.0]], "eq": [], "radio_hit": [166, 128, 58, 22],
+			"mirror": [171, 28, 42, 11], "anchor": [192, 43], "hang": ["rosary", "dice"],
+			"dog": [238, 98], "fan": [150.5, 99.0],
+			"wipers": [[122, 112], [236, 112]], "wlen": 84.0, "glass": [62, 15, 324, 109], "side": [3, 92, 13, 8], "side_frame": "3f5d76",
 		},
 	},
 	"picape": {
@@ -64,12 +66,12 @@ const CARS := {
 		"camh": 1050.0, "cockpit": "cockpit_picape", "player": "player_picape",
 		"wheel_x": [-30.0, 21.0], "brake_x": 26.5, "brake_y": -16.0,
 		"layout": {
-			"wheel": [108, 170, 58], "wheel_style": "picape",
-			"speedo": [106.5, 142.5, 7.0, 120.0], "tach": [], "fuel": [136.5, 142.5, 5.0], "clock": [],
-			"label": [196, 142.5], "reels": [], "eq": [], "radio_hit": [182, 136, 64, 26],
-			"mirror": [167, 13, 50, 10], "anchor": [192, 26], "hang": ["ribbons"],
+			"wheel": [124, 178, 58], "wheel_style": "picape",
+			"speedo": [110.5, 143.5, 6.5, 120.0], "tach": [], "fuel": [139.0, 147.0, 5.0], "clock": [],
+			"label": [195, 143.5], "reels": [], "eq": [], "radio_hit": [182, 134, 66, 30],
+			"mirror": [168, 8, 48, 11], "anchor": [192, 23], "hang": ["ribbons"],
 			"dog": [], "fan": [],
-			"wipers": [[110, 120], [240, 120]], "wlen": 86.0, "glass": [36, 30, 348, 118], "side": [2, 80, 18, 6],
+			"wipers": [[116, 108], [246, 108]], "wlen": 88.0, "glass": [34, 6, 351, 103], "side": [3, 84, 12, 9], "side_frame": "a8acb5",
 		},
 	},
 	"gt": {
@@ -81,12 +83,12 @@ const CARS := {
 		"camh": 700.0, "cockpit": "cockpit_gt", "player": "player_gt",
 		"wheel_x": [-29.0, 20.0], "brake_x": 20.0, "brake_y": -15.0,
 		"layout": {
-			"wheel": [118, 172, 46], "wheel_style": "gt",
-			"speedo": [96.5, 142.5, 11.0, 200.0], "tach": [152.5, 142.5, 11.0], "fuel": [], "clock": [117, 127.5],
-			"label": [205, 134.5], "reels": [], "eq": [203, 149, 62, 9], "radio_hit": [196, 128, 76, 44],
-			"mirror": [169, 25, 46, 8], "anchor": [192, 36], "hang": ["pine"],
+			"wheel": [114, 140, 46], "wheel_style": "gt",
+			"speedo": [100.0, 114.5, 9.0, 200.0], "tach": [129.5, 114.5, 9.0], "fuel": [150.0, 124.0, 3.5], "clock": [198.5, 100.5, 2.0],
+			"label": [164, 142], "reels": [[208.5, 146.5], [222.0, 146.5]], "eq": [189, 165, 36, 9], "radio_hit": [166, 138, 66, 40],
+			"mirror": [169, 23, 46, 11], "anchor": [192, 40], "hang": ["pine"],
 			"dog": [], "fan": [],
-			"wipers": [[122, 104], [238, 104]], "wlen": 74.0, "glass": [44, 40, 342, 104], "side": [2, 77, 16, 6],
+			"wipers": [[124, 96], [240, 96]], "wlen": 76.0, "glass": [38, 19, 345, 90], "side": [0, 86, 14, 18], "side_frame": "",
 		},
 	},
 }

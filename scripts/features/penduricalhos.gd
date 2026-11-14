@@ -26,7 +26,7 @@ const ITEMS := {
 	"aparecida": {"name": "NOSSA SENHORA", "desc": "APARECIDA, PROTETORA DE QUEM VIAJA.", "km": 45},
 }
 const DEFAULTS := {"besouro": {"hang": ["rosary", "dice"], "dash": "dog"}, "picape": {"hang": ["ribbons"], "dash": ""}, "gt": {"hang": ["pine"], "dash": ""}}
-const DASH_AT := {"besouro": Vector2(239.5, 106.0), "picape": Vector2(236.0, 119.0), "gt": Vector2(255.0, 117.0)}   # bottom centre on the dash
+const DASH_AT := {"besouro": Vector2(244.5, 109.0), "picape": Vector2(236.0, 104.0), "gt": Vector2(262.0, 97.0)}   # bottom centre on the dash
 const SPOTS := [-12.0, 12.0, 0.0]   # where along the mirror a new item hangs
 const AMBER := Color("f2a62a")
 const LINE := Color("9bbbe0")
