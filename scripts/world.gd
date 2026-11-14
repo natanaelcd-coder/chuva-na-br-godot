@@ -13,10 +13,38 @@ const LIGHT := Color(1.0, 0.88, 0.59)
 
 var g
 var glow_tex: GradientTexture2D
+var sky_tex := {}           # PixelLab sky: cumulus [4], rain banks [4], sun, moon (assets/sprites/sky_*.png)
+var hz_far := {}            # horizon strips per road: far ridge and near hills, mirrored tiles 1024 art px wide (hz_*_<road>.png)
+var hz_near := {}
+var hz_top := {}
+const HZ_FAR_REF := Color("6f97c4")    # the colour each layer's art was painted for (clear day): tint = sky colour / this
+const HZ_NEAR_REF := Color("2f5a3a")
+const HZ_FAR_DROP := {"terra": 14.0, "br": 12.0, "expressa": 10.0}   # logical units the far strip sinks below the horizon (its valleys hide in the haze)
+const HZ_NEAR_DROP := {"terra": 6.0, "br": 2.0, "expressa": 2.0}
 var player_tex: Texture2D   # paint job from the garage (features/garagem.gd); null: the catalog's sprite
 
 func _ready() -> void:
 	g = get_parent()
+	sky_tex.cum = []
+	sky_tex.rain = []
+	for i in 4:
+		sky_tex.cum.append(load("res://assets/sprites/sky_nuvem%d.png" % i))
+		sky_tex.rain.append(load("res://assets/sprites/sky_chuva%d.png" % i))
+	sky_tex.sun = load("res://assets/sprites/sky_sol.png")
+	sky_tex.moon = load("res://assets/sprites/sky_lua.png")
+	for r in ["terra", "br", "expressa"]:
+		hz_far[r] = load("res://assets/sprites/hz_far_%s.png" % r)
+		hz_near[r] = load("res://assets/sprites/hz_near_%s.png" % r)
+		var im: Image = hz_far[r].get_image()   # first opaque row of every column: where the far ridge is, for things that stand on it
+		var tops := PackedFloat32Array()
+		for cx in im.get_width():
+			var ty := im.get_height()
+			for cy in im.get_height():
+				if im.get_pixel(cx, cy).a > 0.5:
+					ty = cy
+					break
+			tops.append(ty)
+		hz_top[r] = tops
 	var gr := Gradient.new()
 	gr.set_color(0, Color(1, 1, 1, 1))
 	gr.set_color(1, Color(1, 1, 1, 0))
@@ -152,15 +180,16 @@ func _sun_moon(hy: float, night: float) -> void:
 		var low := clampf((sun_y - 16.0) / (hy - 20.0), 0.0, 1.0)
 		var col := Color("fff3b0").lerp(Color("f2a62a"), low)
 		_glow(sun_x, sun_y, 30.0 + low * 50.0, col, 0.55)
-		draw_circle(Vector2(sun_x, sun_y), 5.0 + low * 6.0, col)
-		draw_circle(Vector2(sun_x - 1.5, sun_y - 1.5), 2.0 + low * 3.0, col.lerp(Color.WHITE, 0.5))
+		var sd := 15.0 + low * 11.0   # disc diameter: bigger and redder as it sinks
+		var st: Texture2D = sky_tex.sun
+		draw_texture_rect(st, Rect2(roundf((sun_x - sd / 2.0) * 2.0) / 2.0, roundf((sun_y - sd / 2.0) * 2.0) / 2.0, sd, sd), false,
+				Color.WHITE.lerp(Color("ff7a30"), low * 0.8))
 	if night > 0.05:
 		var mx := 92.0
 		var my := 22.0
 		_glow(mx, my, 22.0, Color("cfe0f2"), 0.25 * night)
-		draw_circle(Vector2(mx, my), 6.0, Color(0.9, 0.92, 0.95, night))
-		draw_circle(Vector2(mx + 2.0, my - 1.0), 1.4, Color(0.75, 0.78, 0.85, night))
-		draw_circle(Vector2(mx - 2.0, my + 2.0), 1.0, Color(0.75, 0.78, 0.85, night))
+		var mt: Texture2D = sky_tex.moon
+		draw_texture_rect(mt, Rect2(mx - 13.0, my - 13.0, 26.0, 25.5), false, Color(1, 1, 1, night))
 
 # chase view: the body turns about its axle line; negative = roof to the left (the body leans left, out of a right-hand bend)
 func body_tilt() -> float:
@@ -212,6 +241,29 @@ func _draw_player(sx: float, sy: float, s: float) -> void:
 			_glow(bx * k, car.brake_y * k, 12.0 * k, Color(1.0, 0.24, 0.2), 0.8)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
+# screen y of the far ridge at logical x (the town that rises on it as you approach: features/estrada.gd)
+func far_ridge(x: float, hy: float) -> float:
+	var rd: String = g.cfg.road
+	var tx: Texture2D = hz_far[rd]
+	var tw := tx.get_width() * 0.5
+	var th := tx.get_height() * 0.5
+	var u := fposmod(x - X0 + fposmod(roundf(g.sky * 0.5 * 2.0) / 2.0, tw), tw) * 2.0
+	return hy + 2.0 + HZ_FAR_DROP[rd] - th + hz_top[rd][int(u) % tx.get_width()] * 0.5
+
+# colour of a horizon layer: the sky's colour for the hour and weather over the colour its art was painted in
+func _tint(c: Color, ref: Color) -> Color:
+	return Color(minf(c.r / ref.r, 1.25), minf(c.g / ref.g, 1.25), minf(c.b / ref.b, 1.25))
+
+# a mirrored strip (1024 art px = 512 units wide at half a unit per art pixel) repeated across the screen, bottom edge at `bottom`
+func _hz_strip(tx: Texture2D, off: float, bottom: float, col: Color) -> void:
+	var tw := tx.get_width() * 0.5
+	var th := tx.get_height() * 0.5
+	var x := X0 - fposmod(roundf(off * 2.0) / 2.0, tw)
+	var y := roundf((bottom - th) * 2.0) / 2.0
+	while x < X0 + XW:
+		draw_texture_rect(tx, Rect2(x, y, tw, th), false, col)
+		x += tw
+
 func _draw() -> void:
 	var ck: bool = g.cam == 0
 	var hy: float = g.view.hy
@@ -242,26 +294,43 @@ func _draw() -> void:
 		cc = top.lerp(Color.WHITE, 0.45 * clampf(amb, 0.3, 1.0)).lerp(cc, g.sky_k / 0.6)
 	cc.a = 0.55
 	var sky_off: float = g.sky
+	var day_k := clampf((amb - 0.42) / 0.78, 0.0, 1.0)   # 1 by day, half at dusk, 0 at night: clouds go from white to the horizon's colour
+	var ccol := hor.lerp(Color.WHITE, day_k * day_k)
+	ccol = ccol.lerp(top, 0.18 * (1.0 - day_k))
+	var ci := 0
 	for c in g.clouds:
 		var cx := fposmod(c[0] - sky_off * 0.3, 520.0) - 110.0
-		draw_rect(Rect2(cx, c[1], c[2], c[3]), cc)
-		draw_rect(Rect2(cx + c[2] * 0.2, c[1] - c[3] * 0.5, c[2] * 0.5, c[3]), cc)
+		var sc: float = 0.2 + c[2] / 110.0 * 0.3   # 40..110 wide in the old model: the size here
+		var nm := ci % 4
+		ci += 1
+		if g.sky_k < 0.98:   # fair-weather cumulus; they thin out as the sky closes in
+			var tx: Texture2D = sky_tex.cum[nm]
+			var w := tx.get_width() * sc
+			var h := tx.get_height() * sc
+			draw_texture_rect(tx, Rect2(roundf(cx * 2.0) / 2.0, roundf((c[1] + 12.0 - h * 0.5) * 2.0) / 2.0, w, h), false,
+					Color(ccol.r, ccol.g, ccol.b, 1.0 - g.sky_k))
+		if g.sky_k > 0.02:   # rain: low grey banks, wider
+			var tx: Texture2D = sky_tex.rain[nm]
+			var w := tx.get_width() * sc * 1.5
+			var h := tx.get_height() * sc * 1.5
+			draw_texture_rect(tx, Rect2(roundf((cx - w * 0.2) * 2.0) / 2.0, roundf((c[1] + 6.0) * 2.0) / 2.0, w, h), false,
+					Color(ccol.r, ccol.g, ccol.b, g.sky_k))
 	g.feature_call("draw_sky", [self, hy])   # features: rainbow, fireworks, balloons...
-	var hf: PackedFloat32Array = g.hill_f
-	var hn: PackedFloat32Array = g.hill_n
+	var rd: String = g.cfg.road
 	var col_f: Color = g.e_hf
 	var col_n: Color = g.e_hn
-	for xi in range(int(X0), int(W) + 40):
-		var h := hf[int(xi + sky_off * 0.5) & 511]
-		draw_rect(Rect2(xi, hy + 2.0 - h, 1.0, h + 4.0), col_f)
+	if rd == "expressa":   # the litoral: a band of sea at the foot of the far mountains
+		var sea := Color("2f6f9f").lerp(top, 0.25)
+		sea = Color(sea.r * clampf(amb, 0.0, 1.0), sea.g * clampf(amb, 0.0, 1.0), sea.b * clampf(amb, 0.0, 1.0)).lerp(col_f, 0.3)
+		draw_rect(Rect2(X0, hy - 1.0, XW, 4.0), sea)
+		draw_rect(Rect2(X0, hy - 1.0, XW, 0.5), sea.lerp(Color.WHITE, 0.18))
+	_hz_strip(hz_far[rd], sky_off * 0.5, hy + 2.0 + HZ_FAR_DROP[rd], _tint(col_f, HZ_FAR_REF))
 	if night > 0.0:
 		for c in g.city_l:
 			var lx := fposmod(c[0] - sky_off * 0.5, 512.0)
 			if lx < W:
 				draw_rect(Rect2(floorf(lx), hy - c[1], 0.5, 0.5), Color(0.94, 0.28, 0.29, night) if c[2] else Color(1.0, 0.84, 0.35, night))
-	for xi in range(int(X0), int(W) + 40):
-		var h := hn[int(xi + sky_off) & 511]
-		draw_rect(Rect2(xi, hy + 3.0 - h, 1.0, h + 3.0), col_n)
+	_hz_strip(hz_near[rd], sky_off, hy + 3.0 + HZ_NEAR_DROP[rd], _tint(col_n, HZ_NEAR_REF))
 	draw_rect(Rect2(X0, hy + 2.0, XW, 260.0), fog)
 
 	# road, front to back
@@ -469,14 +538,17 @@ func _draw() -> void:
 			if q.kind == 5 and a_s * q.ww * W / 2.0 < 40.0:   # billboard too small for its text: plain panel in its own colours
 				_board_far(q.tex, a_s * q.ww * W / 2.0, asx + asw * q.off, asy, clip, alpha)
 				continue
+			if q.tex is AnimTex:   # same animal twice in a pasture: out of step, by where each one stands
+				AnimTex.draw_phase = fposmod(sg.i * 0.613 + q.off * 1.7, 7.0)
 			var r := _sprite(q.tex, q.ww, a_s, asx + asw * q.off, asy, clip, alpha)
+			AnimTex.draw_phase = 0.0
 			if r.size.x == 0.0:
 				continue
 			if q.has("draw"):   # features: lights or fire on a roadside sprite (pisca-pisca, fogueira)
 				q.draw.call(self, q, r, alpha)
 			if q.kind == 1:   # pole: string the wires to the previous one
 				var tx := r.position.x + r.size.x / 2.0
-				var ty := r.position.y + r.size.y * 0.08
+				var ty := r.position.y + r.size.y * 0.045
 				if has_pole:
 					for o in [-0.38, 0.38]:
 						var p0 := Vector2(pp.x + pp.z * o, pp.y)
@@ -490,7 +562,7 @@ func _draw() -> void:
 				pp = Vector3(tx, ty, r.size.x)
 				has_pole = true
 			elif q.kind == 2:
-				_glow(r.position.x + r.size.x * 0.78, r.position.y + r.size.y * 0.13, r.size.x * 1.1, LIGHT, 0.7 * alpha)
+				_glow(r.position.x + r.size.x * 0.86, r.position.y + r.size.y * 0.08, r.size.x * 1.1, LIGHT, 0.7 * alpha)
 			elif q.kind == 3:
 				_glow(r.position.x + r.size.x * 0.5, r.position.y + r.size.y * 0.45, r.size.x * 0.5, LIGHT, 0.45 * alpha)
 			elif q.kind == 6:   # double lamp over the median, lit once the light drops

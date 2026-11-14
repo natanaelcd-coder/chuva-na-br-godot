@@ -26,6 +26,7 @@ const CFG := {
 	"carroca": {"fps": 6.0, "phase": 0.5},   # the cart bounces, the horse swishes its tail
 }
 static var _cache := {}
+static var draw_phase := 0.0   # seconds added at draw time: world.gd sets it per roadside instance so two cows in a pasture are out of step
 
 var strip: Texture2D
 var n := 1
@@ -62,7 +63,7 @@ static func load_sprite(nm: String) -> Texture2D:
 	return res
 
 func _frame() -> int:
-	var t := Time.get_ticks_msec() / 1000.0 + phase
+	var t := Time.get_ticks_msec() / 1000.0 + phase + draw_phase
 	return seq[int(floor(t * fps)) % seq.size()]
 
 func _src(r: Rect2) -> Rect2:

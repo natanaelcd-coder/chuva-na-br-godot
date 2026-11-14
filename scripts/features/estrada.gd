@@ -528,7 +528,7 @@ func _clutter(A: int, i: int, in_town: bool) -> void:
 	match road_id:
 		"br":
 			if A % 14 == 0:
-				_add(i, "pole", 1.42, 1100.0, 1)
+				_add(i, "pole", 1.42, 1300.0, 1)
 			if in_town:
 				return
 			var trees := ["tree0", "tree1", "tree2", "araucaria", "araucaria", "araucaria2", "mangueira"]
@@ -543,7 +543,7 @@ func _clutter(A: int, i: int, in_town: bool) -> void:
 						_add(i, _pick(["araucaria", "araucaria2"]), rng.randf_range(1.8, 5.5), rng.randf_range(1700, 2500))
 				"pasto":
 					if A % 3 == 0:
-						_add(i, "cerca", 1.28, 700.0)
+						_add(i, "cerca", 1.28, 600.0)
 					if rng.randf() < 0.025:
 						_add(i, _pick(["vaca0", "vaca1"]), rng.randf_range(1.9, 4.5), 900.0)
 					if rng.randf() < 0.03:
@@ -560,12 +560,12 @@ func _clutter(A: int, i: int, in_town: bool) -> void:
 				_add(i, _pick(trees), -rng.randf_range(3.9, 7.0), rng.randf_range(1500, 2400))
 		"terra":
 			if A % 28 == 0:
-				_add(i, "pole", 1.5, 1000.0, 1)
+				_add(i, "pole", 1.5, 1200.0, 1)
 			if in_town:
 				return
 			for side in [-1.0, 1.0]:
 				if A % 3 == 0 and zk != "mata":
-					_add(i, "cerca", side * 1.28, 700.0)
+					_add(i, "cerca", side * 1.28, 600.0)
 				match zk:
 					"cafe":
 						if A % 4 == 0:
@@ -575,7 +575,7 @@ func _clutter(A: int, i: int, in_town: bool) -> void:
 						if rng.randf() < 0.025:
 							_add(i, _pick(["vaca0", "vaca1"]), side * rng.randf_range(1.9, 4.5), 900.0)
 						if fx_rng.randf() < 0.012:   # hens scratching by the fence (fx_rng: leaves the road's sequence alone)
-							_add(i, "galinhas", side * fx_rng.randf_range(1.5, 2.3), 440.0)
+							_add(i, "galinhas", side * fx_rng.randf_range(1.5, 2.3), 680.0)
 						if rng.randf() < 0.03:
 							_add(i, _pick(["tree0", "ipe", "ipe_amarelo", "ipe_roxo", "mangueira", "jabuticabeira"]), side * rng.randf_range(3.0, 6.0), rng.randf_range(1600, 2300))
 					"eucalipto":
@@ -588,7 +588,7 @@ func _clutter(A: int, i: int, in_town: bool) -> void:
 							_add(i, _pick(["bush", "bush2"]), side * rng.randf_range(1.3, 1.8), 800.0)
 		"expressa":
 			if A % 8 == 0:
-				_add(i, "luminaria", -1.1, 1900.0, 6)
+				_add(i, "luminaria", -1.1, 2150.0, 6)
 			if in_town or zk == "bairro":
 				if A % 2 == 0:
 					_add(i, "muro", 1.55, 1700.0)
@@ -802,8 +802,7 @@ func draw_sky(w: Node2D, hy: float) -> void:
 func _skyline(w: Node2D, hy: float, t: Dictionary, f: float) -> void:
 	var lr := RandomNumberGenerator.new()
 	lr.seed = t.a
-	var hf: PackedFloat32Array = g.hill_f
-	var base_y := hy + 2.0 - hf[int(sky_x + g.sky * 0.5) & 511] + 1.0
+	var base_y: float = w.far_ridge(sky_x, hy) + 2.0
 	var col: Color = g.e_hf.lerp(g.e_hor, 0.35 * (1.0 - f)).lerp(Color.BLACK, 0.12)
 	col.a = clampf(f * 2.5, 0.0, 1.0)
 	var night := clampf((0.62 - g.e_amb) * 4.0, 0.0, 1.0)

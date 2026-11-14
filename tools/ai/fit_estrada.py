@@ -20,7 +20,7 @@ def _font():
     blk = html[html.index("const GL = {"):]
     blk = blk[:blk.index("};")]
     return {k: [int(v) for v in vs.split(",")] for k, vs in re.findall(r"'?([^'\s:,{\[\]]+)'?:\[([\d,]+)\]", blk)}
-ACC = {"É": "Ea"}
+ACC = {"Á": "A/", "É": "E/", "Í": "I/", "Ó": "O/", "Ú": "U/", "Ã": "A~", "Õ": "O~", "Â": "A^", "Ê": "E^", "Ô": "O^", "Ç": "C,"}   # base letter + accent kind
 def write(im, s, x, y, col, k=1):
     gl = _font()
     px = im.load()
@@ -28,17 +28,25 @@ def write(im, s, x, y, col, k=1):
         for i in range(k):
             for j in range(k):
                 px[x0 + a * k + i, y + b * k + j] = col
+    def mark(kind):   # accents sit above the cap line (or below, the cedilla), 2 rows tall at any scale so they fit under a roof edge
+        t = 3 * k
+        pts = {"/": ((3 * k, -3), (3 * k + 1, -3), (2 * k + 1, -1), (2 * k + 2, -1)) if k > 1 else ((3, -3), (2, -2)),
+               "~": ((1 * k, -2), (2 * k, -3), (3 * k, -2), (4 * k, -3)) if k > 1 else ((1, -2), (2, -3), (3, -2)),
+               "^": ((2 * k, -2), (2 * k + 1, -3), (3 * k, -3), (3 * k + 1, -2)) if k > 1 else ((1, -2), (2, -3), (3, -2)),
+               ",": ((2 * k, 7 * k), (2 * k + 1, 7 * k + 1), (1 * k + 1, 7 * k + 2)) if k > 1 else ((2, 7), (1, 8))}[kind]
+        for ax, ay in pts:
+            px[x0 + ax, y + ay] = col
     x0 = x
     for ch in s:
-        g = gl.get(ACC.get(ch, ch)[0])
+        base, kind = (ACC[ch][0], ACC[ch][1]) if ch in ACC else (ch, None)
+        g = gl.get(base)
         if g:
             for r in range(7):
                 for b in range(5):
                     if g[r] >> (4 - b) & 1:
                         dot(b, r)
-        if ch in ACC:   # acute accent: a short slash, 2 rows tall at any scale so it fits under a roof edge
-            for ax, ay in ((x0 + 3 * k, y - 3), (x0 + 3 * k + 1, y - 3), (x0 + 2 * k + 1, y - 1), (x0 + 2 * k + 2, y - 1)) if k > 1 else ((x0 + 3, y - 3), (x0 + 2, y - 2)):
-                px[ax, ay] = col
+        if kind:
+            mark(kind)
         x0 += 6 * k
 def centered(im, s, cx, y, col, k=1):
     write(im, s, cx - (len(s) * 6 - 1) * k // 2, y, col, k)

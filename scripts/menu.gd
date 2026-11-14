@@ -7,7 +7,7 @@ const AMBER := Color("f2a62a")
 const LINE := Color("9bbbe0")
 const INK := Color("e6e8ee")
 const DIM := Color("6f86a8")
-const PANEL := Color(0.027, 0.043, 0.094, 0.78)
+const PANEL := Color(0.027, 0.043, 0.094, 0.8)
 const KEYS := ["car", "road", "weather", "time"]
 const LABELS := ["CARRO", "ESTRADA", "CLIMA", "HORA"]
 const ROW_Y := [88, 178, 250, 300]
@@ -90,6 +90,15 @@ func _build_main() -> void:
 	main_root.size = Vector2(768, 432)
 	main_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(main_root)
+	var art := TextureRect.new()   # title illustration (PixelLab), seen through the panel: tools/art/cenario_build.py menu
+	art.texture = preload("res://assets/sprites/menu_arte.png")
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_SCALE
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	art.position = Vector2.ZERO
+	art.size = Vector2(452, 432)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	main_root.add_child(art)
 	_rect(Rect2(0, 0, 452, 432), PANEL, main_root)
 	_rect(Rect2(452, 0, 2, 432), Color(LINE, 0.5), main_root)
 	var t := _lbl("CHUVA NA BR", 32, AMBER, Vector2(26, 18), main_root, true)
