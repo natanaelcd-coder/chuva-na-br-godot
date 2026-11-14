@@ -1040,6 +1040,11 @@ func _bump_limit() -> float:
 		for f in segs[(bi + k) % N].feat:
 			if f.t == 3:
 				return 28.0 + sqrt(maxf(0.0, k * SEG - fmod(pos, SEG) - 300.0) * 0.25)
+	# a crest ahead: ease off below the speed that throws the car in the air, so the autopilot ride stays calm
+	if CREST.size() == N:
+		for k in 90:
+			if CREST[(bi + k) % N] > 0.0:
+				return {"terra": 46.0, "br": 58.0}.get(cfg.road, 95.0)
 	return 999.0
 
 var _dodge_t := 0.0
