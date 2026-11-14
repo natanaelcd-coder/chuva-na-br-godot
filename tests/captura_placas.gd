@@ -30,20 +30,30 @@ func find(names: Array, from_seg: int) -> int:
 	return -1
 
 func _run() -> void:
-	for job in [["expressa", "dia", ["portico"], "portico_expressa_dia", 9], ["expressa", "noite", ["portico"], "portico_expressa_noite", 9],
+	var only: String = OS.get_cmdline_user_args()[1] if OS.get_cmdline_user_args().size() > 1 else ""
+	for job in [["br", "dia", ["bandeirinhas"], "bandeirinhas_cidade_br_dia", 12], ["terra", "noite", ["bandeirinhas"], "bandeirinhas_cidade_terra_noite", 12],
+			["expressa", "dia", ["portico"], "portico_expressa_dia", 9], ["expressa", "noite", ["portico"], "portico_expressa_noite", 9],
 			["expressa", "dia", ["placa_radar", "sos"], "radar_sos_expressa_dia", 14], ["expressa", "noite", ["sos"], "sos_expressa_noite", 10],
 			["terra", "dia", ["placa_gado", "placa_lombada"], "gado_terra_dia", 14], ["br", "noite", ["placa_gado", "placa_lombada", "placa_radar"], "aviso_br_noite", 14]]:
+		if only != "" and not str(job[3]).begins_with(only):
+			continue
 		Engine.set_meta("test_seed", 5)
 		g = MAIN.instantiate()
 		root.add_child(g)
 		await process_frame
 		g.cfg = {"car": "gt" if job[0] == "expressa" else "besouro", "road": job[0], "weather": "sol", "time": job[1]}
 		g.setup()
+		if job[2] == ["bandeirinhas"]:
+			g.get_node("estrada").dest_k = 1
 		g.begin()
 		g.set_auto(true)
 		g.hud.toast_t = 0.0
 		await ff(g.N)
 		await ff(600)
+		if job[2] == ["bandeirinhas"]:
+			var f = g.get_node("estrada")
+			await ff(int(f.towns[0].a) - int(f.abs_c) - 120)
+			await ff(60)
 		var i := find(job[2], int(g.pos / g.SEG))
 		if i < 0:
 			print("nao achei ", job[3])

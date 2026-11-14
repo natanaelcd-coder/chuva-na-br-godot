@@ -297,6 +297,86 @@ def build_portico():
         save(out, name)
 
 
+def _garland_strip(g):
+    """a guirlanda de baixo (lado esquerdo) da geração, 'desentortada' (cada coluna sobe até o cordão ficar reto) e cortada entre
+    duas bandeirinhas: um pedaço que emenda a si mesmo"""
+    a = g.load()
+    W, H = g.size
+    x0, x1 = 12, 136
+    y = 56
+    cols = []
+    for x in range(x0, x1):
+        best = None
+        for yy in range(y - 1, y + 3):
+            if a[x, yy][3] > 0:
+                best = yy
+                break
+        if best is None:
+            best = y
+        y = best
+        cols.append((x, y))
+    FH = 28
+    strip = Image.new('RGBA', (len(cols), FH), (0, 0, 0, 0))
+    for i, (x, cy) in enumerate(cols):
+        for j in range(FH):
+            yy = cy - 1 + j
+            if yy < H and not (j < 1 and a[x, yy][3] == 0):
+                strip.putpixel((i, j), a[x, yy])
+    # colunas "vazias" (só cordão): cortes possíveis
+    gaps = [i for i in range(strip.width) if sum(1 for j in range(4, FH) if strip.getpixel((i, j))[3] > 0) == 0]
+    return strip, gaps
+
+
+def build_bandeirinhas():
+    g = gen("bandeirinhas_0")
+    g = g.crop(bbox(g))
+    strip, gaps = _garland_strip(g)
+    c0 = gaps[0] if gaps else 0
+    c1 = gaps[-1] if gaps else strip.width
+    piece = strip.crop((c0, 0, c1, strip.height))
+    # postes da própria geração
+    pw = 8
+    pole_l = g.crop((0, 0, pw, g.height))
+    pole_r = g.crop((g.width - pw, 0, g.width, g.height))
+    def pole(src, h):
+        return stretch_post(src, h, top=6, bot=10)
+    def garland(L, y_end, sag, shift):
+        out = Image.new('RGBA', (L, y_end + sag + 30), (0, 0, 0, 0))
+        base = Image.new('RGBA', (L, strip.height), (0, 0, 0, 0))
+        x = -(shift % piece.width)
+        while x < L:
+            base.alpha_composite(piece, (x, 0))
+            x += piece.width
+        for xx in range(L):
+            t = (xx + 0.5) / L
+            dy = int(round(sag * (1 - (2 * t - 1) ** 2)))
+            col = base.crop((xx, 0, xx + 1, strip.height))
+            out.alpha_composite(col, (xx, y_end + dy))
+        return out
+    def tone(im, sat, val):
+        im = im.copy()
+        px = im.load()
+        for yy in range(im.height):
+            for xx in range(im.width):
+                r, gg, b, aa = px[xx, yy]
+                if aa:
+                    h, s_, v = colorsys.rgb_to_hsv(r / 255, gg / 255, b / 255)
+                    r2, g2, b2 = colorsys.hsv_to_rgb(h, s_ * sat, min(1, v * val))
+                    px[xx, yy] = (int(r2 * 255), int(g2 * 255), int(b2 * 255), aa)
+        return im
+    def compose(W, H, xl, xr, gar, sat, val):
+        out = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        L = xr - xl - pw
+        for (ye, sag, sh) in gar:
+            gl = garland(L, ye, sag, sh)
+            out.alpha_composite(tone(gl, sat, val), (xl + pw, 0))
+        out.alpha_composite(pole(pole_l, H), (xl, 0))
+        out.alpha_composite(pole(pole_r, H), (xr, 0))
+        return out
+    save(compose(480, 88, 4, 468, [(4, 10, 0), (28, 12, 40)], 0.62, 0.92), "bandeirinhas")
+    save(compose(480, 192, 26, 446, [(26, 12, 0), (52, 14, 61)], 1.0, 1.0), "bandeirinhas_junina")
+
+
 LANCHES = {"pastel": 0, "coxinha": 0, "caldo_cana": 0, "cafe": 0, "pao_queijo": 0, "bolo_fuba": 0, "milho": 0, "queijo_doce": 0,
            "misto": 0, "pamonha": 0, "pao_chapa": 0, "agua_coco": 0, "pingado": 0, "caldinho": 1}   # geração escolhida de cada ícone
 
@@ -350,6 +430,8 @@ if __name__ == "__main__":
     a = sys.argv[1:]
     if a == ["lanches"]:
         build_lanches()
+    elif a == ["bandeirinhas"]:
+        build_bandeirinhas()
     elif a == ["portico"]:
         build_portico()
     elif a and a[0] == "extras":

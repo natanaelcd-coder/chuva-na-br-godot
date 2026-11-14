@@ -54,3 +54,5 @@ sos
 cafe
 portico
 portico_branco
+bandeirinhas
+bandeirinhas_junina
