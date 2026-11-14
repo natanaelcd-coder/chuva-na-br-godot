@@ -27,7 +27,12 @@ const TRACKS := [   # file, artist, title, station
 	["radio_noite_1", "CONJUNTO MADRUGADA", "BOLERO DO FAROL ALTO", 2],
 	["radio_noite_2", "BANDA NEON", "LUZ DE FREIO", 2],
 	["radio_noite_3", "SINTONIA FINA", "ÚLTIMO PEDÁGIO", 2],
+	["musica/serra_me_leva_pra_casa", "IRMÃOS DO PINHEIRAL", "SERRA ME LEVA PRA CASA", 0],   # ElevenLabs, com vocal
+	["musica/vou_de_brisa", "LUA DE MARÉ", "VOU DE BRISA", 1],
+	["musica/volta_pra_mim", "ROBSON ESTRELA", "VOLTA PRA MIM", 2],
 ]
+# a música nova de cada estação: toca primeiro na primeira sintonia da viagem (índice em TRACKS)
+const NOVAS := [12, 13, 14]
 const FITA_LEN := 6   # songs per side
 const FITA_START := [0, 4, 8]   # the tape that came in the glovebox
 
@@ -142,6 +147,7 @@ var rng := RandomNumberGenerator.new()
 var streams: Array = []        # per track
 var sounds := {}               # jingles, beds, pips, click
 var prog: Array = []           # per radio station: what is on the air right now
+var novas_ouvidas := {}        # estações já sintonizadas nesta viagem (a música nova tem prioridade na 1ª vez)
 var heard: Array = []          # tracks heard to the end
 var fita_a: Array = []
 var fita_b: Array = []
@@ -200,6 +206,7 @@ func _ready() -> void:
 		prog.append(p)
 	_stations()
 	g.setup_done.connect(_on_setup)
+	g.trip_started.connect(_on_trip)
 	g.menu.add_main_item("RÁDIO", _open_screen)
 	g.menu.add_pause_item("RÁDIO E FITA", _open_screen)
 
@@ -361,6 +368,12 @@ func _on_setup() -> void:
 	if g.radio_st != before or (cur_id == "fita" and not has_tape()):
 		radio_tune()
 
+func _on_trip() -> void:   # cada viagem recomeça a regra: a música nova de cada estação toca na primeira sintonia
+	novas_ouvidas = {}
+	var c := cur()
+	if not c.is_empty() and c.id != "fita":
+		radio_tune()
+
 func radio_next() -> void:
 	g.radio_st = (g.radio_st + 1) % (g.STATIONS.size() + 1)
 	cur_id = cur().get("id", "off")
@@ -398,8 +411,23 @@ func radio_tune() -> void:
 		a_click.play()
 		_tape_play()
 	else:
+		_priorizar_nova(g.radio_st)
 		_apply_item(g.radio_st, true)
 	radio_now_playing()
+
+# primeira vez que a estação é sintonizada na viagem: a música nova entra já (agora ou logo depois da locução),
+# e a rotação segue normal depois dela
+func _priorizar_nova(si: int) -> void:
+	if novas_ouvidas.has(si) or not g.started:
+		return
+	novas_ouvidas[si] = true
+	var nova: int = NOVAS[si]
+	var p: Dictionary = prog[si]
+	if p.kind == "talk":
+		if not p.items.slice(0, p.ti + 1).has("intro"):   # a chamada já no ar anunciou a outra música
+			p.next = nova
+	elif p.song != nova:
+		_start_song(p, si, nova)
 
 func _apply_item(si: int, joined: bool) -> void:
 	var p: Dictionary = prog[si]

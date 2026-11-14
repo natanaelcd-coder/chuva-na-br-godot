@@ -45,6 +45,10 @@ func _run() -> void:
 	await step(30)
 	check(g.STATIONS.size() == 4 and g.STATIONS[3].id == "fita", "besouro: 3 radios + tape")
 	check(r.shown_text.begins_with("TOCANDO:"), "song on the strip: " + r.shown_text)
+	check(r.TRACKS.size() == 15 and r.streams[12].get_length() > 120.0, "musicas novas carregadas (ElevenLabs)")
+	check(r.prog[0].song == r.NOVAS[0] and r.g.radio_song == r.NOVAS[0], "serra: musica nova toca na primeira sintonia da viagem")
+	r._priorizar_nova(1)
+	check(r.prog[1].song == r.NOVAS[1] or r.prog[1].next == r.NOVAS[1], "litoral: musica nova na primeira sintonia")
 
 	# every kind of line, every station
 	for si in 3:

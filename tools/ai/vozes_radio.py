@@ -250,7 +250,9 @@ TRACKS = [("radio0", "TRIO ASFALTO", "CHUVA NA SERRA", 0), ("radio_serra_1", "DO
           ("radio1", "OS VAGALUMES", "JANELA ABERTA", 1), ("radio_litoral_1", "ZÉ DA BALSA", "SAMBA DO ACOSTAMENTO", 1),
           ("radio_litoral_2", "BEL MARESIA", "BOSSA DO PEDÁGIO", 1), ("radio_litoral_3", "OS VAGALUMES", "MARESIA NO PAINEL", 1),
           ("radio2", "BANDA NEON", "KM 43", 2), ("radio_noite_1", "CONJUNTO MADRUGADA", "BOLERO DO FAROL ALTO", 2),
-          ("radio_noite_2", "BANDA NEON", "LUZ DE FREIO", 2), ("radio_noite_3", "SINTONIA FINA", "ÚLTIMO PEDÁGIO", 2)]
+          ("radio_noite_2", "BANDA NEON", "LUZ DE FREIO", 2), ("radio_noite_3", "SINTONIA FINA", "ÚLTIMO PEDÁGIO", 2),
+          ("musica/serra_me_leva_pra_casa", "IRMÃOS DO PINHEIRAL", "SERRA ME LEVA PRA CASA", 0),
+          ("musica/vou_de_brisa", "LUA DE MARÉ", "VOU DE BRISA", 1), ("musica/volta_pra_mim", "ROBSON ESTRELA", "VOLTA PRA MIM", 2)]
 DJ_INTRO = [
     [("E AGORA, PRA ACOMPANHAR A SUBIDA: %s, COM \"%s\".", "E agora, pra acompanhar a subida: {a}, com {t}."),
      ("PEDIDO DO PESSOAL DA VENDA: %s, \"%s\".", "Pedido do pessoal da venda: {a}... {t}."),
@@ -299,7 +301,7 @@ def lines():
             _, art, tit, _ = TRACKS[ti]
             for j in (k % 3, (k + 1) % 3):
                 t, f = DJ_INTRO[si][j]
-                L.append({"id": f"{EST[si]}_chamada_{TRACKS[ti][0]}_{j + 1}", "st": si, "kind": "intro", "song": ti,
+                L.append({"id": f"{EST[si]}_chamada_{TRACKS[ti][0].replace('/', '_')}_{j + 1}", "st": si, "kind": "intro", "song": ti,
                           "tela": t % (art, tit), "fala": f.format(a=nome(art), t=nome(tit))})
     return L
 
