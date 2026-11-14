@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Retro Diffusion v2: rd.py OUT.png STYLE W H "prompt" [--ref ref.png] [--seed N] [--bg]
+"""Retro Diffusion v2: rd.py OUT.png STYLE W H "prompt" [--ref ref.png] [--init img.png --strength 0.5] [--seed N] [--bg]
 The key comes from RETRODIFFUSION_API_KEY or is injected by the session's network secrets."""
 import base64, json, os, sys, time, uuid, urllib.request
 
@@ -26,6 +26,9 @@ def main():
         body["reference_images"] = [base64.b64encode(open(a[a.index("--ref") + 1], "rb").read()).decode()]
     if "--seed" in a:
         body["seed"] = int(a[a.index("--seed") + 1])
+    if "--init" in a:
+        body["input_image"] = base64.b64encode(open(a[a.index("--init") + 1], "rb").read()).decode()
+        body["strength"] = float(a[a.index("--strength") + 1]) if "--strength" in a else 0.5
     if "--bg" in a:
         body["remove_bg"] = True
     r = call("POST", "/inferences", body)
