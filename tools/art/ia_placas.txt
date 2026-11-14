@@ -46,3 +46,11 @@ gar_player_picape_azul
 gar_player_picape_saia
 gar_player_picape_saia_azul
 gar_player_picape_vermelha
+placa_gado
+placa_lombada
+placa_radar
+placa_reduza
+sos
+cafe
+portico
+portico_branco

@@ -106,10 +106,17 @@ def ink(oldim, base, rect, ignore=()):
     return out
 
 
-def sign(name, src, face_h, base, hue=None, hue_sat=None, hue_val=1.0, ring=False, inset=5, post_h=None, keep_ring=False):
+def sign(name, src, face_h, base, wipe=False, hue=None, hue_sat=None, hue_val=1.0, ring=False, inset=5, post_h=None, keep_ring=False):
     o = old(name)
     W, H = o.size
     face_g, posts_g = split_sign(gen(src))
+    if wipe:   # apaga o anel vermelho da geração: o anel e os números vêm do sprite antigo
+        px = face_g.load()
+        for y in range(face_g.height):
+            for x in range(face_g.width):
+                r, g, b, a = px[x, y]
+                if a and r > 140 and g < 110 and b < 110:
+                    px[x, y] = (236, 237, 241, 255)
     if hue is not None:
         face_g = recolor(face_g, hue, hue_sat, hue_val)
         posts_g = [p for p in posts_g]
@@ -133,6 +140,10 @@ def sign(name, src, face_h, base, hue=None, hue_sat=None, hue_val=1.0, ring=Fals
         out.alpha_composite(pst, (cx - pst.width // 2, face_h - 6))
     f = stretch(face_g, (W, face_h), min(7, face_g.width // 4), min(7, face_g.height // 4))
     out.alpha_composite(f, (0, 0))
+    if wipe:   # miolo liso: sem o anel fantasma da geração
+        for y in range(inset + 1, face_h - inset - 1):
+            for x in range(inset + 1, W - inset - 1):
+                out.putpixel((x, y), (236, 237, 241, 255))
     for x, y, c in ink(o, base, (inset, inset, W - inset, face_h - inset)):
         out.putpixel((x, y), c)
     return out
@@ -226,6 +237,66 @@ def build_signs(only=None):
             save(f(), n)
 
 
+def fit_sprite(im, W, H):
+    """recorta, leva à largura W (vizinho mais próximo) e acerta a altura H apagando/repetindo linhas do meio (o poste)"""
+    im = im.crop(bbox(im))
+    im = im.resize((W, max(1, round(im.height * W / im.width))), Image.NEAREST)
+    out = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    im = squeeze(im, H) if im.height > H else im
+    out.alpha_composite(im, (0, H - im.height))
+    return out
+
+
+def no_green(im):
+    px = im.load()
+    for y in range(im.height):
+        for x in range(im.width):
+            r, g, b, a = px[x, y]
+            if a and g > r + 15 and g > b + 15:
+                px[x, y] = (0, 0, 0, 0)
+    return im
+
+
+def build_extras(only=None):
+    S = {
+        "placa_gado": lambda: fit_sprite(gen("gado_0"), 72, 96),
+        "placa_lombada": lambda: fit_sprite(gen("lombada_0"), 72, 96),
+        "placa_radar": lambda: sign("placa_radar", "radar_0", 72, (230, 232, 238), wipe=True, inset=4),
+        "placa_reduza": lambda: sign("placa_reduza", "radar_0", 84, (230, 232, 238), wipe=True, inset=4),
+        "sos": lambda: fit_sprite(no_green(gen("sos_4")), 32, 60),
+        "cafe": lambda: fit_sprite(gen("cafe_0"), 96, 36),
+    }
+    for n, f in S.items():
+        if not only or n in only:
+            save(f(), n)
+
+
+def build_portico():
+    """pórtico 480x180: estrutura gerada (postes e treliça, treliça repetida no meio) + duas placas verdes nas posições do antigo"""
+    fr = gen("portico_0")
+    fr = fr.crop(bbox(fr))
+    w, h = fr.size
+    mx = 40
+    base = Image.new('RGBA', (480, 180), (0, 0, 0, 0))
+    left, right = squeeze(fr.crop((0, 0, mx, h)), 180), squeeze(fr.crop((w - mx, 0, w, h)), 180)
+    mid = fr.crop((mx, 0, w - mx, 36))   # só a treliça (sem a sombra do chão)
+    base.alpha_composite(left, (4, 0))
+    base.alpha_composite(right, (476 - mx, 0))
+    x = 4 + mx
+    while x < 476 - mx:
+        base.alpha_composite(mid.crop((0, 0, min(mid.width, 476 - mx - x), 36)), (x, 0))
+        x += mid.width
+    face_g, _ = split_sign(gen(PICK["verde"]))
+    for (x0, x1) in [(36, 251), (272, 463)]:
+        base.alpha_composite(stretch(face_g, (x1 - x0 + 1, 62), 7, 7), (x0, 0))
+    for name in ("portico_branco", "portico"):
+        out, o = base.copy(), old(name)
+        for (x0, x1) in [(36, 251), (272, 463)]:
+            for xx, yy, c in ink(o, GREEN, (x0 + 13, 2, x1 - 11, 56)):
+                out.putpixel((xx, yy), c)
+        save(out, name)
+
+
 LANCHES = {"pastel": 0, "coxinha": 0, "caldo_cana": 0, "cafe": 0, "pao_queijo": 0, "bolo_fuba": 0, "milho": 0, "queijo_doce": 0,
            "misto": 0, "pamonha": 0, "pao_chapa": 0, "agua_coco": 0, "pingado": 0, "caldinho": 1}   # geração escolhida de cada ícone
 
@@ -279,6 +350,10 @@ if __name__ == "__main__":
     a = sys.argv[1:]
     if a == ["lanches"]:
         build_lanches()
+    elif a == ["portico"]:
+        build_portico()
+    elif a and a[0] == "extras":
+        build_extras(a[1:])
     elif a == ["barracas"]:
         build_barracas()
     else:

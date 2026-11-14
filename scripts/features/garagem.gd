@@ -34,7 +34,7 @@ const SLOTS := ["", "cor", "capa", "tapete", "adesivo"]
 const SPOTS := {
 	"besouro": {"seat": [284, 216, 294, 186, 184], "mat": [222, 199, 56, 14], "sticker": [32.0, 15.5], "mirror": [171, 28, 42, 11],
 		"rim": 11.0, "crop": [204, 130]},
-	"picape": {"seat": [262, 216, 274, 190, 188], "mat": [226, 194, 72, 22], "sticker": [32.0, 13.5], "mirror": [168, 8, 48, 11],
+	"picape": {"seat": [262, 216, 274, 190, 188], "mat": [226, 194, 72, 22], "sticker": [31.0, 15.0], "mirror": [168, 8, 48, 11],
 		"rim": 7.0, "crop": [196, 128]},
 	"gt": {"seat": [276, 216, 286, 186, 184], "mat": [246, 196, 52, 18], "sticker": [32.0, 17.0], "mirror": [169, 23, 46, 11],
 		"rim": 12.0, "crop": [190, 126]},
@@ -130,7 +130,7 @@ func draw_cabin_mid(ck: CanvasItem) -> void:
 	draw_seat(ck, car, choice(car, "capa"))
 	_mirror_sticker(ck, car, choice(car, "adesivo"))
 
-# rear-window sticker on the body sprite: sprite unit (u, v) sits at at + ((u - 32) k, (v - 44) k)
+# rear-window sticker on the body sprite: sprite unit (u, v) sits at at + ((u - 32) k, (v + 2 - body_h) k), v from the top of the body quad
 func _sticker(ci: CanvasItem, car: String, id: String, k: float, at := Vector2.ZERO) -> void:
 	if id == "":
 		return
@@ -139,7 +139,8 @@ func _sticker(ci: CanvasItem, car: String, id: String, k: float, at := Vector2.Z
 		return
 	var sz := t.get_size() / 2.0
 	var sp: Array = SPOTS[car].sticker
-	ci.draw_texture_rect(t, Rect2(at + Vector2(sp[0] - sz.x / 2.0 - 32.0, sp[1] - sz.y - 44.0) * k, sz * k), false)
+	var bh: float = Cat.body_h(g.tex[Cat.CARS[car].player])
+	ci.draw_texture_rect(t, Rect2(at + Vector2(sp[0] - sz.x / 2.0 - 32.0, sp[1] - sz.y + 2.0 - bh) * k, sz * k), false)
 
 # from the driver's seat the sticker shows in the rear-view mirror: letters backwards, or the paper's white back
 func _mirror_sticker(ci: CanvasItem, car: String, id: String) -> void:

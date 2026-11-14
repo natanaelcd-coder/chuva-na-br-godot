@@ -12,6 +12,7 @@ const SHOTS := [
 	["ext_besouro_calcinha", "besouro", "terra", "chuva", "entardecer", 1, "calcinha", "", "", "deus", -1],
 	["ext_picape_saia", "picape", "terra", "sol", "dia", 1, "saia", "", "", "pago", -1],
 	["ext_picape_vermelha", "picape", "br", "sol", "entardecer", 1, "vermelha", "", "", "devagar", -1],
+	["ext_picape_azul_noite", "picape", "br", "sol", "noite", 1, "azul", "", "", "indo", -1],
 	["ext_gt_prata", "gt", "expressa", "sol", "dia", 1, "prata", "", "", "indo", -1],
 	["ext_gt_preto_noite", "gt", "expressa", "chuva", "noite", 1, "preto", "", "", "volto", -1],
 	["cab_besouro_limao", "besouro", "br", "sol", "dia", 0, "limao", "xadrez", "branco", "pago", -1],
