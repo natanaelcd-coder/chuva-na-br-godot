@@ -19,7 +19,7 @@ const ART := ["placa_km_verde", "placa_km_marrom", "placa_cidade", "placa_volte"
 	"placa_reduza", "casa_vila0", "casa_vila1", "casa_vila2", "casa_vila3", "casa_vila4", "igreja", "bar", "ponto_onibus",
 	"orelhao", "gente0", "gente1", "gente2", "bandeirinhas",
 	"ipe_amarelo", "ipe_roxo", "mangueira", "jabuticabeira", "coqueiro", "coqueiro2", "tree2", "araucaria2", "bush2",
-	"banca_frutas", "caldo_cana", "cruz_flores", "placa_mel", "caixa_dagua", "torre_celular", "borracharia"]
+	"banca_frutas", "caldo_cana", "cruz_flores", "placa_mel", "caixa_dagua", "torre_celular", "borracharia", "galinhas"]
 const ROADS := {
 	"terra": {"town_km": [4.0, 7.0], "stop_km": [4.0, 6.0], "km_sign": [1.0, 1.6], "town_len": 200, "town_pre": 200,
 		"zones": ["cafe", "pasto", "eucalipto", "mata"], "zone_len": [80, 160], "stop_name": "VENDA"},
@@ -574,6 +574,8 @@ func _clutter(A: int, i: int, in_town: bool) -> void:
 					"pasto":
 						if rng.randf() < 0.025:
 							_add(i, _pick(["vaca0", "vaca1"]), side * rng.randf_range(1.9, 4.5), 900.0)
+						if fx_rng.randf() < 0.012:   # hens scratching by the fence (fx_rng: leaves the road's sequence alone)
+							_add(i, "galinhas", side * fx_rng.randf_range(1.5, 2.3), 440.0)
 						if rng.randf() < 0.03:
 							_add(i, _pick(["tree0", "ipe", "ipe_amarelo", "ipe_roxo", "mangueira", "jabuticabeira"]), side * rng.randf_range(3.0, 6.0), rng.randf_range(1600, 2300))
 					"eucalipto":

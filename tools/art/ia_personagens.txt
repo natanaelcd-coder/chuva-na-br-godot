@@ -26,3 +26,17 @@ caramelo_busto_anim
 parada_venda_sem
 parada_posto_sem
 parada_loja_sem
+vaca0
+vaca1
+cavalo
+caramelo
+galinhas
+trator
+carroca
+vaca0_anim
+vaca1_anim
+cavalo_anim
+caramelo_anim
+galinhas_anim
+trator_anim
+carroca_anim
