@@ -1,5 +1,7 @@
 # Chuva na BR (Godot 4)
 
+Conceito, arquitetura, ferramentas e pendências: `docs/PROJETO.md`.
+
 Jogo relaxante de dirigir em pixel art: escolha o carro, a estrada, o clima e a hora, ligue o rádio e vá sem pressa. Nenhum game over.
 
 ## Abrir
@@ -32,7 +34,7 @@ As escolhas e o recorde de cada estrada ficam salvos.
 | Câmera interna/externa | V |
 | Trocar de estação (Serra FM, Litoral FM, Noite AM, fita K7 no Besouro, desligado) | R (ou clique no rádio do painel) |
 | Virar o lado da fita (Besouro, na fita) | T |
-| Piloto automático | P |
+| Piloto: LIGADO → ASSISTIDO → DESLIGADO | P |
 | Buzina | B |
 | Seta (esquerda/direita) | Q / E |
 | Parar no posto/venda/parada | encoste à direita devagar (abaixo de 35 km/h) ou Enter perto da parada |
